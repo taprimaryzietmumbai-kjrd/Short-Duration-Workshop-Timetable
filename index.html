@@ -181,6 +181,12 @@ function initSessionMatrix(){
  try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
  if(!Array.isArray(data)||data.length!==20)data=currentSessionData();
  renderSessionMatrix(data);
+ // Keep the main timetable synchronized with the matrix on page load.
+ applySessionMatrix();
+ // Any edit to a matrix field immediately updates the matching timetable session.
+ document.getElementById('matrixGrid').addEventListener('input',()=>{
+   applySessionMatrix();
+ });
 }
 initSessionMatrix();
 
