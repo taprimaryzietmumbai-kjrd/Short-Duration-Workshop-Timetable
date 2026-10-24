@@ -19,6 +19,17 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 .resource a{display:block;margin-top:5px;padding:5px;background:#eaf3f8;color:#075b8c;text-decoration:none;border-radius:4px;font-weight:bold;overflow-wrap:anywhere}
 .resource a:hover{text-decoration:underline}.remove{float:right;background:#f0d4d4!important;color:#8a1d1d!important;padding:3px 5px!important}.edit{float:right;background:#e8f0fe!important;color:#174ea6!important;padding:3px 5px!important;margin-right:4px}
 .note{max-width:1550px;margin:10px auto;color:#596773;font-size:12px}
+.matrixPanel{max-width:1550px;margin:0 auto 14px;padding:14px;background:#fff;border:1px solid #d4dee6;border-radius:8px}
+.matrixPanel h2{margin:0 0 6px;color:#173f63;font-size:18px}.matrixPanel p{margin:0 0 12px;font-size:13px;color:#596773}
+.matrixGrid{display:grid;grid-template-columns:repeat(2,minmax(300px,1fr));gap:10px}
+.sessionCard{border:1px solid #cbd7e0;border-radius:7px;padding:10px;background:#f8fafb;min-width:0}
+.sessionCard h3{margin:0 0 8px;color:#20537b;font-size:14px}
+.sessionCard label{display:block;font-size:11px;font-weight:bold;margin-top:6px;color:#344653}
+.sessionCard input{display:block;width:100%;padding:7px;margin-top:3px;border:1px solid #b9c7d1;border-radius:4px;font-size:12px}
+.matrixActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}.matrixActions button{padding:9px 13px;border:0;border-radius:6px;font-weight:bold;cursor:pointer}
+#matrixStatus{font-size:12px;font-weight:bold;color:#1b6e3a}
+@media(max-width:760px){.matrixGrid{grid-template-columns:1fr}}
+@media print{#sessionMatrix{display:none}}
 @media print{.bar,.note{display:none}table{width:100%}.resource input,.resource button{display:none}.resource{font-size:9px}}
 </style></head>
 <body>
@@ -45,6 +56,14 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <button class="print" onclick="setupSheet()">⚙ Sheet Setup</button>
 <button class="print" onclick="clearAll()">↺ Clear Saved Links</button>
 <span id="sheetStatus" style="font-size:11px;font-weight:bold;color:#596773"></span></div>
+
+<section id="sessionMatrix" class="matrixPanel">
+  <h2>Session Planning Matrix — 5 Days × 4 Sessions</h2>
+  <p>Enter four details for each session: session heading, speaker name, designation, and organization. Select <b>Apply to Timetable</b> to update the schedule below.</p>
+  <div id="matrixGrid" class="matrixGrid"></div>
+  <div class="matrixActions"><button type="button" class="save" onclick="applySessionMatrix()">Apply to Timetable</button><button type="button" class="print" onclick="saveSessionMatrix()">Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><span id="matrixStatus" aria-live="polite"></span></div>
+</section>
+
 <table><thead><tr>
 <th>Date</th><th>Morning Assembly<br><small>9.00–9.30 AM</small></th>
 <th>Session–1<br><small>9.30–11.00 AM</small></th>
@@ -88,6 +107,82 @@ document.getElementById('workshopFormat').addEventListener('change',updateWorksh
 document.getElementById('targetGroup').addEventListener('input',updateWorkshopDescription);
 updateDurationHeader();
 updateWorkshopDescription();
+
+
+const MATRIX_KEY='ZIET_SHORT_WORKSHOP_SESSION_MATRIX_2026';
+function getSessionCells(){
+  const rows=Array.from(document.querySelectorAll('table tbody tr'));
+  const out=[];
+  rows.slice(0,5).forEach((row,dayIndex)=>{
+    const cells=row.querySelectorAll('td');
+    for(let sessionIndex=1;sessionIndex<=4;sessionIndex++){
+      const cell=cells[sessionIndex+1];
+      if(cell) out.push({dayIndex,sessionIndex,cell});
+    }
+  });
+  return out;
+}
+function currentSessionData(){
+  return getSessionCells().map(({dayIndex,sessionIndex,cell})=>{
+    const topic=cell.querySelector('.topic')?.textContent.trim()||'';
+    const speaker=cell.querySelector('.speaker')?.textContent.trim()||'';
+    return {dayIndex,sessionIndex,topic,speakerName:speaker,designation:'',organization:''};
+  });
+}
+function renderSessionMatrix(data){
+  const grid=document.getElementById('matrixGrid'); grid.innerHTML='';
+  data.forEach(item=>{
+    const card=document.createElement('div'); card.className='sessionCard';
+    card.innerHTML='<h3>Day '+(item.dayIndex+1)+' · Session '+item.sessionIndex+'</h3>'+
+      '<label>Session Heading<input data-field="topic" placeholder="Enter session heading"></label>'+
+      '<label>Speaker Name<input data-field="speakerName" placeholder="Enter speaker name"></label>'+
+      '<label>Designation<input data-field="designation" placeholder="e.g. Professor / Principal"></label>'+
+      '<label>Organization<input data-field="organization" placeholder="e.g. IIT Bombay / KVS RO Mumbai"></label>';
+    card.dataset.dayIndex=item.dayIndex; card.dataset.sessionIndex=item.sessionIndex;
+    Object.keys(item).forEach(key=>{const input=card.querySelector('[data-field="'+key+'"]');if(input)input.value=item[key]||''});
+    grid.appendChild(card);
+  });
+}
+function readSessionMatrix(){
+ return Array.from(document.querySelectorAll('.sessionCard')).map(card=>({
+  dayIndex:Number(card.dataset.dayIndex),sessionIndex:Number(card.dataset.sessionIndex),
+  topic:card.querySelector('[data-field="topic"]').value.trim(),
+  speakerName:card.querySelector('[data-field="speakerName"]').value.trim(),
+  designation:card.querySelector('[data-field="designation"]').value.trim(),
+  organization:card.querySelector('[data-field="organization"]').value.trim()
+ }));
+}
+function saveSessionMatrix(){
+ localStorage.setItem(MATRIX_KEY,JSON.stringify(readSessionMatrix()));
+ document.getElementById('matrixStatus').textContent='Matrix saved in this browser.';
+}
+function applySessionMatrix(){
+ const data=readSessionMatrix();
+ data.forEach(item=>{
+  const row=document.querySelectorAll('table tbody tr')[item.dayIndex];
+  const cell=row?.querySelectorAll('td')[item.sessionIndex+1]; if(!cell)return;
+  let topic=cell.querySelector('.topic');
+  if(!topic){topic=document.createElement('div');topic.className='topic';cell.insertBefore(topic,cell.firstChild)}
+  topic.textContent=item.topic||'Session heading to be added';
+  let speaker=cell.querySelector('.speaker');
+  if(!speaker){speaker=document.createElement('div');speaker.className='speaker';topic.insertAdjacentElement('afterend',speaker)}
+  speaker.textContent=[item.speakerName,item.designation,item.organization].filter(Boolean).join(', ');
+ });
+ saveSessionMatrix();
+ document.getElementById('matrixStatus').textContent='Timetable updated and matrix saved in this browser.';
+}
+function resetSessionMatrix(){
+ if(!confirm('Reset the matrix to the current session headings and speaker text shown in the timetable?'))return;
+ localStorage.removeItem(MATRIX_KEY);renderSessionMatrix(currentSessionData());
+ document.getElementById('matrixStatus').textContent='Matrix reset. Apply to Timetable to use these entries.';
+}
+function initSessionMatrix(){
+ let data;
+ try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
+ if(!Array.isArray(data)||data.length!==20)data=currentSessionData();
+ renderSessionMatrix(data);
+}
+initSessionMatrix();
 
 function generateCurrentPDF(){
   saveAll();
