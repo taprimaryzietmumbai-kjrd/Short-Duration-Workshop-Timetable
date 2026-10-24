@@ -27,12 +27,15 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
 <div class="title">Short Duration Workshop Timetable</div>
 <div id="durationDisplay">Duration: 07.09.2026 to 11.09.2026</div>
+<div id="workshopDescription" class="sub">Five-Day Face-to-Face Workshop for KV <span id="targetGroupDisplay">__________________________</span></div>
 <div style="font-size:18px;font-weight:800;text-decoration:underline;margin-top:7px">TIME TABLE (TRAINING SCHEDULE)</div>
 </header>
 <div class="wrap">
 <div class="bar">
 <label style="font-size:13px;font-weight:bold">Duration — From <input id="startDate" type="date" value="2026-09-07" aria-label="Workshop start date" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"></label>
 <label style="font-size:13px;font-weight:bold">To <input id="endDate" type="date" value="2026-09-11" aria-label="Workshop end date" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"></label>
+<label style="font-size:13px;font-weight:bold">Workshop format <select id="workshopFormat" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"><option value="Face-to-Face">Face-to-Face</option><option value="Online">Online</option><option value="Hybrid">Hybrid</option></select></label>
+<label style="font-size:13px;font-weight:bold">Target Group <input id="targetGroup" type="text" placeholder="e.g. PRTs / TGTs / Vice Principals" aria-label="Workshop target group" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px;min-width:240px"></label>
 <span style="margin-right:auto;font-size:13px"><b>Digital timetable:</b> add hyperlinks directly below the relevant session.</span>
 <button class="save" onclick="saveAndSync()">💾 Save Resources</button>
 <button class="save" onclick="syncAllToSheet()">📊 Sync to Google Sheet</button>
@@ -65,9 +68,26 @@ function updateDurationHeader(){
   if(end<start){display.textContent='Duration: End date must be on or after start date';return}
   display.textContent='Duration: '+formatDateForHeader(start)+' to '+formatDateForHeader(end);
 }
-document.getElementById('startDate').addEventListener('change',updateDurationHeader);
-document.getElementById('endDate').addEventListener('change',updateDurationHeader);
+function updateWorkshopDescription(){
+  const start=document.getElementById('startDate').value;
+  const end=document.getElementById('endDate').value;
+  const format=document.getElementById('workshopFormat').value;
+  const group=document.getElementById('targetGroup').value.trim();
+  let days='';
+  if(start && end && end>=start){
+    const s=new Date(start+'T00:00:00'), e=new Date(end+'T00:00:00');
+    days=Math.round((e-s)/86400000)+1;
+  }
+  const duration=days ? (days===1?'One-Day':days===2?'Two-Day':days===3?'Three-Day':days===4?'Four-Day':days===5?'Five-Day':days+'-Day') : 'Short Duration';
+  document.getElementById('workshopDescription').innerHTML=duration+' '+format+' Workshop for KV <span id="targetGroupDisplay"></span>';
+  document.getElementById('targetGroupDisplay').textContent=group || '__________________________';
+}
+document.getElementById('startDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription()});
+document.getElementById('endDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription()});
+document.getElementById('workshopFormat').addEventListener('change',updateWorkshopDescription);
+document.getElementById('targetGroup').addEventListener('input',updateWorkshopDescription);
 updateDurationHeader();
+updateWorkshopDescription();
 
 function generateCurrentPDF(){
   saveAll();
@@ -125,6 +145,7 @@ function generateCurrentPDF(){
     <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
     <div class="title">Short Duration Workshop Timetable</div>
     <div class="small">${document.getElementById("durationDisplay").textContent}</div>
+    <div class="small" style="font-size:12px;font-weight:700;margin-top:4px">${document.getElementById("workshopDescription").innerText}</div>
     <div class="title" style="font-size:14px;text-decoration:underline">TIME TABLE (TRAINING SCHEDULE)</div>
   </div>
   ${clone.outerHTML}
