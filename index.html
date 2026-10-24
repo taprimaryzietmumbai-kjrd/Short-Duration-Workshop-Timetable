@@ -36,7 +36,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <header>
 <div class="hi">केन्द्रीय विद्यालय संगठन, आंचलिक शिक्षा एवं प्रशिक्षण संस्थान, मुंबई</div>
 <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
-<div class="title">Short Duration Workshop Timetable</div>
+<div class="title" id="headerWorkshopTitle">Short Duration Workshop Timetable</div>
 <div id="durationDisplay">Duration: 07.09.2026 to 11.09.2026</div>
 <div id="workshopDescription" class="sub">Five-Day Face-to-Face Workshop for KV <span id="targetGroupDisplay">__________________________</span></div>
 <div style="font-size:18px;font-weight:800;text-decoration:underline;margin-top:7px">TIME TABLE (TRAINING SCHEDULE)</div>
@@ -47,6 +47,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <label style="font-size:13px;font-weight:bold">To <input id="endDate" type="date" value="2026-09-11" aria-label="Workshop end date" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"></label>
 <label style="font-size:13px;font-weight:bold">Workshop format <select id="workshopFormat" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"><option value="Face-to-Face">Face-to-Face</option><option value="Online">Online</option><option value="Hybrid">Hybrid</option></select></label>
 <label style="font-size:13px;font-weight:bold">Target Group <input id="targetGroup" type="text" placeholder="e.g. PRTs / TGTs / Vice Principals" aria-label="Workshop target group" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px;min-width:240px"></label>
+<label style="font-size:13px;font-weight:bold">Title of the Workshop <input id="workshopTitleInput" type="text" placeholder="Type the workshop title" aria-label="Title of the workshop" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px;min-width:260px"></label>
 <span style="margin-right:auto;font-size:13px"><b>Digital timetable:</b> add hyperlinks directly below the relevant session.</span>
 <button class="save" onclick="saveAndSync()">💾 Save Resources</button>
 <button class="save" onclick="syncAllToSheet()">📊 Sync to Google Sheet</button>
@@ -89,6 +90,13 @@ function updateDurationHeader(){
   if(end<start){display.textContent='Duration: End date must be on or after start date';return}
   display.textContent='Duration: '+formatDateForHeader(start)+' to '+formatDateForHeader(end);
 }
+const WORKSHOP_TITLE_KEY='ZIET_SHORT_WORKSHOP_TITLE_2026';
+function updateHeaderWorkshopTitle(){
+ const title=document.getElementById('workshopTitleInput').value.trim()||'Short Duration Workshop Timetable';
+ document.getElementById('headerWorkshopTitle').textContent=title;
+ document.title=title+' | Short Duration Workshop Timetable';
+ localStorage.setItem(WORKSHOP_TITLE_KEY,document.getElementById('workshopTitleInput').value);
+}
 function updateWorkshopDescription(){
   const start=document.getElementById('startDate').value;
   const end=document.getElementById('endDate').value;
@@ -107,6 +115,9 @@ document.getElementById('startDate').addEventListener('change',()=>{updateDurati
 document.getElementById('endDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription()});
 document.getElementById('workshopFormat').addEventListener('change',updateWorkshopDescription);
 document.getElementById('targetGroup').addEventListener('input',updateWorkshopDescription);
+document.getElementById('workshopTitleInput').addEventListener('input',updateHeaderWorkshopTitle);
+document.getElementById('workshopTitleInput').value=localStorage.getItem(WORKSHOP_TITLE_KEY)||'';
+updateHeaderWorkshopTitle();
 updateDurationHeader();
 updateWorkshopDescription();
 
@@ -225,7 +236,7 @@ function generateCurrentPDF(){
   if(!w){ alert('Please allow pop-ups for this timetable, then try again.'); return; }
 
   w.document.write(`<!doctype html><html><head><meta charset="utf-8">
-  <title>Short Duration Workshop Timetable</title>
+  <title>${document.getElementById("headerWorkshopTitle").textContent}</title>
   <style>
     @page{size:A3 landscape;margin:10mm}
     body{font-family:Arial,sans-serif;color:#18242e;margin:0}
@@ -246,7 +257,7 @@ function generateCurrentPDF(){
   <div class="head">
     <div class="hi">केन्द्रीय विद्यालय संगठन, आंचलिक शिक्षा एवं प्रशिक्षण संस्थान, मुंबई</div>
     <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
-    <div class="title">Short Duration Workshop Timetable</div>
+    <div class="title">${document.getElementById("headerWorkshopTitle").textContent}</div>
     <div class="small">${document.getElementById("durationDisplay").textContent}</div>
     <div class="small" style="font-size:12px;font-weight:700;margin-top:4px">${document.getElementById("workshopDescription").innerText}</div>
     <div class="title" style="font-size:14px;text-decoration:underline">TIME TABLE (TRAINING SCHEDULE)</div>
