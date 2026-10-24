@@ -205,38 +205,20 @@ initSessionMatrix();
 
 function generateCurrentPDF(){
   saveAll();
+  // Print only the session timetable content: session headings and speaker details.
+  // Resource panels and their links are deliberately excluded from the PDF.
   const table = document.querySelector('table');
   const clone = table.cloneNode(true);
+  clone.querySelectorAll('.resource').forEach(el=>el.remove());
+  clone.querySelectorAll('input,button,select,textarea').forEach(el=>el.remove());
 
-  // Convert every live resource into a compact clickable PDF link.
-  clone.querySelectorAll('[id^="l-"]').forEach(box=>{
-    const links = box.querySelectorAll('a');
-    const parent = box.closest('.resource');
-    if(!parent) return;
-
-    // Remove input controls/buttons in the cloned PDF.
-    parent.querySelectorAll('input,button').forEach(el=>el.remove());
-
-    if(links.length){
-      links.forEach(a=>{
-        a.setAttribute('href', a.href);
-        a.setAttribute('target','_blank');
-        a.style.display='block';
-        a.style.color='#075b8c';
-        a.style.textDecoration='underline';
-        a.style.fontWeight='700';
-      });
-    } else {
-      box.innerHTML = '<span style="color:#777">No resource link added</span>';
-    }
-  });
-
-  // Build a standalone print document. Browser's Save as PDF will preserve hyperlinks.
+  // Build a standalone print document.
   const w = window.open('', '_blank');
   if(!w){ alert('Please allow pop-ups for this timetable, then try again.'); return; }
 
+  const safeTitle = document.getElementById("headerWorkshopTitle").textContent;
   w.document.write(`<!doctype html><html><head><meta charset="utf-8">
-  <title>${document.getElementById("headerWorkshopTitle").textContent}</title>
+  <title>${safeTitle}</title>
   <style>
     @page{size:A3 landscape;margin:10mm}
     body{font-family:Arial,sans-serif;color:#18242e;margin:0}
@@ -246,18 +228,16 @@ function generateCurrentPDF(){
     table{border-collapse:collapse;width:100%;table-layout:fixed;margin-top:8px}
     th,td{border:1px solid #8fa2b0;vertical-align:top}
     th{background:#20537b;color:white;text-align:center;padding:7px;font-size:10px}
-    td{padding:6px;font-size:8.5px;line-height:1.25}
+    td{padding:7px;font-size:9px;line-height:1.3}
     th:first-child{width:7%} th:nth-child(2){width:12%} th:nth-child(n+3){width:20.25%}
     .date{background:#edf3f7;text-align:center;color:#173f63}
-    .topic{font-weight:700;font-size:9px;margin-bottom:4px}
-    .speaker{font-size:8px;color:#3e4c57}
-    .resource{margin-top:6px;padding-top:4px;border-top:1px dashed #9eacb8;background:#f7fafc;color:#1e587c}
-    .resource b{font-size:7.5px}.links a,.resource a{font-size:7.5px;display:block;margin-top:3px;color:#075b8c!important;text-decoration:underline!important;overflow-wrap:anywhere}
+    .topic{font-weight:700;font-size:9.5px;margin-bottom:5px}
+    .speaker{font-size:8.5px;color:#3e4c57}
   </style></head><body>
   <div class="head">
     <div class="hi">केन्द्रीय विद्यालय संगठन, आंचलिक शिक्षा एवं प्रशिक्षण संस्थान, मुंबई</div>
     <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
-    <div class="title">${document.getElementById("headerWorkshopTitle").textContent}</div>
+    <div class="title">${safeTitle}</div>
     <div class="small">${document.getElementById("durationDisplay").textContent}</div>
     <div class="small" style="font-size:12px;font-weight:700;margin-top:4px">${document.getElementById("workshopDescription").innerText}</div>
     <div class="title" style="font-size:14px;text-decoration:underline">TIME TABLE (TRAINING SCHEDULE)</div>
@@ -266,8 +246,6 @@ function generateCurrentPDF(){
   </body></html>`);
   w.document.close();
   w.focus();
-
-  // Wait for the new document to render, then open print dialog.
   setTimeout(()=>{w.print();},700);
 }
 </script>
