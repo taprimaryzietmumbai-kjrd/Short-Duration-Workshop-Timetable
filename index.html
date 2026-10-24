@@ -26,11 +26,14 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <div class="hi">केन्द्रीय विद्यालय संगठन, आंचलिक शिक्षा एवं प्रशिक्षण संस्थान, मुंबई</div>
 <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
 <div class="title">Short Duration Workshop Timetable</div>
-<div>07.09.2026 to 11.09.2026</div>
+<div id="durationDisplay">Duration: 07.09.2026 to 11.09.2026</div>
 <div style="font-size:18px;font-weight:800;text-decoration:underline;margin-top:7px">TIME TABLE (TRAINING SCHEDULE)</div>
 </header>
 <div class="wrap">
-<div class="bar"><span style="margin-right:auto;font-size:13px"><b>Digital timetable:</b> add hyperlinks directly below the relevant session.</span>
+<div class="bar">
+<label style="font-size:13px;font-weight:bold">Duration — From <input id="startDate" type="date" value="2026-09-07" aria-label="Workshop start date" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"></label>
+<label style="font-size:13px;font-weight:bold">To <input id="endDate" type="date" value="2026-09-11" aria-label="Workshop end date" style="padding:7px;border:1px solid #b9c7d1;border-radius:5px"></label>
+<span style="margin-right:auto;font-size:13px"><b>Digital timetable:</b> add hyperlinks directly below the relevant session.</span>
 <button class="save" onclick="saveAndSync()">💾 Save Resources</button>
 <button class="save" onclick="syncAllToSheet()">📊 Sync to Google Sheet</button>
 <button class="print" onclick="loadFromSheet()">🔄 Load from Google Sheet</button>
@@ -49,6 +52,23 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <div class="note">Enter a resource title and URL below any session. The resource is saved in this browser and, once the Google Apps Script connector is configured, automatically sent to the linked Google Sheet. <a href="https://docs.google.com/spreadsheets/d/1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA/edit?usp=sharing" target="_blank">Open Google Sheet</a>. Click “Generate Current PDF” to create a fresh PDF containing the current resource names as clickable hyperlinks.</div>
 </div>
 <script>
+function formatDateForHeader(value){
+  if(!value) return '';
+  const parts=value.split('-');
+  return parts.length===3 ? parts[2]+'.'+parts[1]+'.'+parts[0] : value;
+}
+function updateDurationHeader(){
+  const start=document.getElementById('startDate').value;
+  const end=document.getElementById('endDate').value;
+  const display=document.getElementById('durationDisplay');
+  if(!start || !end){display.textContent='Duration: Select start and end dates';return}
+  if(end<start){display.textContent='Duration: End date must be on or after start date';return}
+  display.textContent='Duration: '+formatDateForHeader(start)+' to '+formatDateForHeader(end);
+}
+document.getElementById('startDate').addEventListener('change',updateDurationHeader);
+document.getElementById('endDate').addEventListener('change',updateDurationHeader);
+updateDurationHeader();
+
 function generateCurrentPDF(){
   saveAll();
   const table = document.querySelector('table');
@@ -103,9 +123,8 @@ function generateCurrentPDF(){
   <div class="head">
     <div class="hi">केन्द्रीय विद्यालय संगठन, आंचलिक शिक्षा एवं प्रशिक्षण संस्थान, मुंबई</div>
     <div class="en">KENDRIYA VIDYALAYA SANGATHAN, ZONAL INSTITUTE OF EDUCATION AND TRAINING, MUMBAI</div>
-    <div class="small">5 Day Face-to-Face Workshop on</div>
     <div class="title">Short Duration Workshop Timetable</div>
-    <div class="small">07.09.2026 to 11.09.2026</div>
+    <div class="small">${document.getElementById("durationDisplay").textContent}</div>
     <div class="title" style="font-size:14px;text-decoration:underline">TIME TABLE (TRAINING SCHEDULE)</div>
   </div>
   ${clone.outerHTML}
