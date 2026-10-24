@@ -148,16 +148,32 @@ function updateWorkshopDescription(){
   document.getElementById('targetGroupDisplay').textContent=group || '__________________________';
 }
 restoreWorkshopSettings();
+try{
+  const savedGroup=localStorage.getItem('ZIET_SHORT_WORKSHOP_TARGET_GROUP_2026');
+  if(savedGroup!==null && !document.getElementById('targetGroup').value)document.getElementById('targetGroup').value=savedGroup;
+}catch(e){}
 document.getElementById('startDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription();saveWorkshopSettings()});
 document.getElementById('endDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription();saveWorkshopSettings()});
 document.getElementById('workshopFormat').addEventListener('change',()=>{updateWorkshopDescription();saveWorkshopSettings()});
-document.getElementById('targetGroup').addEventListener('input',()=>{updateWorkshopDescription();saveWorkshopSettings()});
+function persistTargetGroup(){
+  updateWorkshopDescription();
+  saveWorkshopSettings();
+  try{
+    localStorage.setItem('ZIET_SHORT_WORKSHOP_TARGET_GROUP_2026',document.getElementById('targetGroup').value);
+  }catch(e){
+    console.warn('Could not save target group in this browser',e);
+  }
+}
+document.getElementById('targetGroup').addEventListener('input',persistTargetGroup);
+document.getElementById('targetGroup').addEventListener('change',persistTargetGroup);
+document.getElementById('targetGroup').addEventListener('blur',persistTargetGroup);
 document.getElementById('workshopTitleInput').addEventListener('input',()=>{updateHeaderWorkshopTitle();saveWorkshopSettings()});
 if(!document.getElementById('workshopTitleInput').value)document.getElementById('workshopTitleInput').value=localStorage.getItem(WORKSHOP_TITLE_KEY)||'';
 updateHeaderWorkshopTitle();
 updateDurationHeader();
 updateTableDates();
 updateWorkshopDescription();
+window.addEventListener('beforeunload',saveWorkshopSettings);
 
 
 const MATRIX_KEY='ZIET_SHORT_WORKSHOP_SESSION_MATRIX_2026';
