@@ -82,6 +82,7 @@ function formatDateForHeader(value){
   const parts=value.split('-');
   return parts.length===3 ? parts[2]+'.'+parts[1]+'.'+parts[0] : value;
 }
+const SETTINGS_KEY='ZIET_SHORT_WORKSHOP_SETTINGS_2026';
 function updateDurationHeader(){
   const start=document.getElementById('startDate').value;
   const end=document.getElementById('endDate').value;
@@ -89,6 +90,41 @@ function updateDurationHeader(){
   if(!start || !end){display.textContent='Duration: Select start and end dates';return}
   if(end<start){display.textContent='Duration: End date must be on or after start date';return}
   display.textContent='Duration: '+formatDateForHeader(start)+' to '+formatDateForHeader(end);
+  updateTableDates();
+  saveWorkshopSettings();
+}
+function updateTableDates(){
+  const start=document.getElementById('startDate').value;
+  if(!start)return;
+  const base=new Date(start+'T00:00:00');
+  document.querySelectorAll('table tbody tr').forEach((row,i)=>{
+    const d=new Date(base); d.setDate(base.getDate()+i);
+    const dateText=String(d.getDate()).padStart(2,'0')+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+d.getFullYear();
+    const weekday=d.toLocaleDateString('en-GB',{weekday:'long'});
+    const cell=row.querySelector('td.date');
+    if(cell)cell.innerHTML='<b>'+dateText+'</b><br>'+weekday+'<br><strong>Day-'+(i+1)+'</strong>';
+  });
+}
+function saveWorkshopSettings(){
+  const settings={
+    startDate:document.getElementById('startDate').value,
+    endDate:document.getElementById('endDate').value,
+    workshopFormat:document.getElementById('workshopFormat').value,
+    targetGroup:document.getElementById('targetGroup').value,
+    workshopTitle:document.getElementById('workshopTitleInput').value
+  };
+  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));
+}
+function restoreWorkshopSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'null');
+    if(!s)return;
+    if(s.startDate)document.getElementById('startDate').value=s.startDate;
+    if(s.endDate)document.getElementById('endDate').value=s.endDate;
+    if(s.workshopFormat)document.getElementById('workshopFormat').value=s.workshopFormat;
+    if(typeof s.targetGroup==='string')document.getElementById('targetGroup').value=s.targetGroup;
+    if(typeof s.workshopTitle==='string')document.getElementById('workshopTitleInput').value=s.workshopTitle;
+  }catch(e){}
 }
 const WORKSHOP_TITLE_KEY='ZIET_SHORT_WORKSHOP_TITLE_2026';
 function updateHeaderWorkshopTitle(){
@@ -111,14 +147,16 @@ function updateWorkshopDescription(){
   document.getElementById('workshopDescription').innerHTML=duration+' '+format+' Workshop for KV <span id="targetGroupDisplay"></span>';
   document.getElementById('targetGroupDisplay').textContent=group || '__________________________';
 }
-document.getElementById('startDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription()});
-document.getElementById('endDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription()});
-document.getElementById('workshopFormat').addEventListener('change',updateWorkshopDescription);
-document.getElementById('targetGroup').addEventListener('input',updateWorkshopDescription);
-document.getElementById('workshopTitleInput').addEventListener('input',updateHeaderWorkshopTitle);
-document.getElementById('workshopTitleInput').value=localStorage.getItem(WORKSHOP_TITLE_KEY)||'';
+restoreWorkshopSettings();
+document.getElementById('startDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription();saveWorkshopSettings()});
+document.getElementById('endDate').addEventListener('change',()=>{updateDurationHeader();updateWorkshopDescription();saveWorkshopSettings()});
+document.getElementById('workshopFormat').addEventListener('change',()=>{updateWorkshopDescription();saveWorkshopSettings()});
+document.getElementById('targetGroup').addEventListener('input',()=>{updateWorkshopDescription();saveWorkshopSettings()});
+document.getElementById('workshopTitleInput').addEventListener('input',()=>{updateHeaderWorkshopTitle();saveWorkshopSettings()});
+if(!document.getElementById('workshopTitleInput').value)document.getElementById('workshopTitleInput').value=localStorage.getItem(WORKSHOP_TITLE_KEY)||'';
 updateHeaderWorkshopTitle();
 updateDurationHeader();
+updateTableDates();
 updateWorkshopDescription();
 
 
@@ -231,12 +269,13 @@ function initSessionMatrix(){
  try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
  if(!Array.isArray(data)||data.length!==20)data=currentSessionData();
  renderSessionMatrix(data);
- // Keep the main timetable synchronized with the browser copy, then load the central copy.
+ // Restore saved session headings and speaker details immediately on every opening.
  applySessionMatrix(false);
  loadSessionMatrixFromSheet();
- // Any edit to a matrix field immediately updates the matching timetable session.
+ // Save edits locally as they are typed, so reopening the app restores them.
  document.getElementById('matrixGrid').addEventListener('input',()=>{
    applySessionMatrix(false);
+   localStorage.setItem(MATRIX_KEY,JSON.stringify(readSessionMatrix()));
  });
 }
 initSessionMatrix();
