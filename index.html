@@ -166,10 +166,47 @@ function readSessionMatrix(){
  }));
 }
 function saveSessionMatrix(){
- localStorage.setItem(MATRIX_KEY,JSON.stringify(readSessionMatrix()));
- document.getElementById('matrixStatus').textContent='Matrix saved in this browser.';
+ const data=readSessionMatrix();
+ localStorage.setItem(MATRIX_KEY,JSON.stringify(data));
+ document.getElementById('matrixStatus').textContent='Saving matrix to Google Sheet…';
+ const endpoint=getWebApp();
+ if(!endpoint){
+   document.getElementById('matrixStatus').textContent='Saved in this browser only. Configure the Google Apps Script URL.';
+   return;
+ }
+ sendToSheet({action:'matrixSave',sessions:data}).then(()=>{
+   document.getElementById('matrixStatus').textContent='Matrix saved in this browser and sent to Google Sheet ✓';
+ });
 }
-function applySessionMatrix(){
+function loadSessionMatrixFromSheet(){
+ const endpoint=getWebApp();
+ if(!endpoint)return;
+ const token='mx_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+ const frame=document.createElement('iframe');
+ frame.style.display='none';
+ frame.src=endpoint+'?action=matrixList&token='+encodeURIComponent(token);
+ let done=false;
+ const finish=()=>{if(frame.parentNode)frame.parentNode.removeChild(frame);window.removeEventListener('message',onMessage)};
+ const onMessage=(event)=>{
+   const d=event.data;
+   if(!d||d.type!=='ZIET_VP_MATRIX'||d.token!==token||done)return;
+   done=true;finish();
+   if(d.ok&&Array.isArray(d.sessions)&&d.sessions.length===20){
+     localStorage.setItem(MATRIX_KEY,JSON.stringify(d.sessions));
+     renderSessionMatrix(d.sessions);
+     applySessionMatrix(false);
+     document.getElementById('matrixStatus').textContent='Matrix loaded from Google Sheet ✓';
+   }else if(d.ok){
+     document.getElementById('matrixStatus').textContent='No complete saved matrix found in Google Sheet; using current matrix.';
+   }else{
+     document.getElementById('matrixStatus').textContent='Could not load matrix from Google Sheet; using browser copy.';
+   }
+ };
+ window.addEventListener('message',onMessage);
+ document.body.appendChild(frame);
+ setTimeout(()=>{if(!done){done=true;finish();document.getElementById('matrixStatus').textContent='Matrix load timed out; using browser copy.'}},12000);
+}
+function applySessionMatrix(saveRemote=true){
  const data=readSessionMatrix();
  data.forEach(item=>{
   const row=document.querySelectorAll('table tbody tr')[item.dayIndex];
@@ -181,8 +218,8 @@ function applySessionMatrix(){
   if(!speaker){speaker=document.createElement('div');speaker.className='speaker';topic.insertAdjacentElement('afterend',speaker)}
   speaker.textContent=[item.speakerName,item.designation,item.organization].filter(Boolean).join(', ');
  });
- saveSessionMatrix();
- document.getElementById('matrixStatus').textContent='Timetable updated and matrix saved in this browser.';
+ if(saveRemote) saveSessionMatrix(); else localStorage.setItem(MATRIX_KEY,JSON.stringify(data));
+ document.getElementById('matrixStatus').textContent=saveRemote?'Timetable updated; saving matrix to Google Sheet…':'Timetable updated from saved matrix.';
 }
 function resetSessionMatrix(){
  if(!confirm('Reset the matrix to the current session headings and speaker text shown in the timetable?'))return;
@@ -194,11 +231,12 @@ function initSessionMatrix(){
  try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
  if(!Array.isArray(data)||data.length!==20)data=currentSessionData();
  renderSessionMatrix(data);
- // Keep the main timetable synchronized with the matrix on page load.
- applySessionMatrix();
+ // Keep the main timetable synchronized with the browser copy, then load the central copy.
+ applySessionMatrix(false);
+ loadSessionMatrixFromSheet();
  // Any edit to a matrix field immediately updates the matching timetable session.
  document.getElementById('matrixGrid').addEventListener('input',()=>{
-   applySessionMatrix();
+   applySessionMatrix(false);
  });
 }
 initSessionMatrix();
