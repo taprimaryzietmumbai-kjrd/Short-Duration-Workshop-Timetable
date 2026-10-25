@@ -285,15 +285,23 @@ function resetSessionMatrix(){
 function initSessionMatrix(){
  let data;
  try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
- if(!Array.isArray(data)||data.length!==20)data=currentSessionData();
+ const fresh=currentSessionData();
+ if(Array.isArray(data)&&data.length===20){
+   // Migrate the old 20-session matrix: preserve its entries and add the 5 Morning Assembly entries.
+   const byKey=new Map(data.map(x=>[x.dayIndex+'-'+x.sessionIndex,x]));
+   data=fresh.map(x=>x.sessionIndex===0?x:(byKey.get(x.dayIndex+'-'+x.sessionIndex)||x));
+ }else if(!Array.isArray(data)||data.length!==25){
+   data=fresh;
+ }
  renderSessionMatrix(data);
  // Restore saved session headings and speaker details immediately on every opening.
  applySessionMatrix(false);
  loadSessionMatrixFromSheet();
- // Save edits locally as they are typed, so reopening the app restores them.
+ // Save edits locally as they are typed, and reflect them in the matching timetable cell.
  document.getElementById('matrixGrid').addEventListener('input',()=>{
+   const latest=readSessionMatrix();
+   localStorage.setItem(MATRIX_KEY,JSON.stringify(latest));
    applySessionMatrix(false);
-   localStorage.setItem(MATRIX_KEY,JSON.stringify(readSessionMatrix()));
  });
 }
 initSessionMatrix();
