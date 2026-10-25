@@ -191,11 +191,18 @@ function getSessionCells(){
   return out;
 }
 function currentSessionData(){
-  return getSessionCells().map(({dayIndex,sessionIndex,cell})=>{
-    const topic=cell.querySelector('.topic')?.textContent.trim()||'';
-    const speaker=cell.querySelector('.speaker')?.textContent.trim()||'';
-    return {dayIndex,sessionIndex,topic,speakerName:speaker,designation:'',organization:''};
-  });
+  const existing=new Map(getSessionCells().map(({dayIndex,sessionIndex,cell})=>[
+    dayIndex+'-'+sessionIndex,
+    {topic:cell.querySelector('.topic')?.textContent.trim()||'',speakerName:cell.querySelector('.speaker')?.textContent.trim()||''}
+  ]));
+  const data=[];
+  for(let dayIndex=0;dayIndex<5;dayIndex++){
+    for(let sessionIndex=0;sessionIndex<=4;sessionIndex++){
+      const item=existing.get(dayIndex+'-'+sessionIndex)||{topic:'',speakerName:''};
+      data.push({dayIndex,sessionIndex,topic:item.topic,speakerName:item.speakerName,designation:'',organization:''});
+    }
+  }
+  return data;
 }
 function renderSessionMatrix(data){
   const grid=document.getElementById('matrixGrid'); grid.innerHTML='';
