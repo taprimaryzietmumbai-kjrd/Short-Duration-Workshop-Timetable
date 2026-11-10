@@ -385,7 +385,7 @@ function sheetMeta(k){
  const topic=(cells[idx]?.querySelector('.topic')?.innerText||'').trim();
  const speaker=(cells[idx]?.querySelector('.speaker')?.innerText||'').trim();
  const headings=['Morning Assembly','Session–1','Session–2','Session–3','Session–4'];
- return {date,session:headings[idx]||('Session-'+idx),topic,speaker,cellId:k};
+ return {date,session:headings[idx-1]||('Session-'+idx),topic,speaker,cellId:k};
 }
 function sendToSheet(payload){
  const endpoint=getWebApp();
@@ -489,24 +489,26 @@ function renderSheetResources(items){
 }
 
 function loadFromSheet(){
-  const sheetId='1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA';
-  const url='https://docs.google.com/spreadsheets/d/'+sheetId+'/gviz/tq?tqx=responseHandler:ZIET_SHEET_READ&sheet=Resources&headers=1&tq='+encodeURIComponent('SELECT A,B,C,D,E,F,G,H WHERE G IS NOT NULL');
+  const endpoint=getWebApp();
+  if(!endpoint){status('Google Sheet: Not configured');return}
   status('Google Sheet: Loading…');
-  const script=document.createElement('script');
+  const token='rs_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  const frame=document.createElement('iframe');
+  frame.style.display='none';
+  frame.src=endpoint+'?action=list&token='+encodeURIComponent(token);
   let done=false;
-  const timer=setTimeout(()=>{if(done)return;done=true;cleanup();status('Google Sheet: Load timed out')},15000);
-  function cleanup(){clearTimeout(timer);try{delete window.ZIET_SHEET_READ}catch(e){window.ZIET_SHEET_READ=undefined}if(script.parentNode)script.parentNode.removeChild(script)}
-  window.ZIET_SHEET_READ=function(resp){
-    if(done)return; done=true; cleanup();
-    if(!resp || resp.status!=='ok'){status('Google Sheet: Load failed');return}
-    const rows=(resp.table&&resp.table.rows)||[];
-    const resources=rows.map(r=>{const c=r.c||[];return {date:c[1]?.v||'',session:c[2]?.v||'',topic:c[3]?.v||'',speaker:c[4]?.v||'',title:c[5]?.v||'',url:c[6]?.v||'',cellId:c[7]?.v||''}}).filter(x=>x.cellId&&valid(x.url));
-    renderSheetResources(resources);
-    status('Google Sheet: Loaded '+resources.length+' resources ✓',true);
+  const finish=()=>{if(frame.parentNode)frame.parentNode.removeChild(frame);window.removeEventListener('message',onMessage)};
+  const timer=setTimeout(()=>{if(done)return;done=true;finish();status('Google Sheet: Load timed out; check Apps Script deployment')},15000);
+  const onMessage=(event)=>{
+    const d=event.data;
+    if(!d||d.type!=='ZIET_VP_RESOURCES'||d.token!==token||done)return;
+    done=true;clearTimeout(timer);finish();
+    if(!d.ok||!Array.isArray(d.resources)){status('Google Sheet: '+(d.error||'Load failed'));return}
+    renderSheetResources(d.resources);
+    status('Google Sheet: Loaded '+d.resources.length+' resources ✓',true);
   };
-  script.onerror=function(){if(done)return;done=true;cleanup();status('Google Sheet: Load failed — unable to reach Google Sheet')};
-  script.src=url;
-  document.body.appendChild(script);
+  window.addEventListener('message',onMessage);
+  document.body.appendChild(frame);
 }
 function restore(){
   // Google Sheet is the central database. Load it first on every device/browser.
