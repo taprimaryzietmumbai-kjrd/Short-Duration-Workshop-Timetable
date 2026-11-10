@@ -390,11 +390,35 @@ function sheetMeta(k){
 function sendToSheet(payload){
  const endpoint=getWebApp();
  if(!endpoint){status('Google Sheet: Not configured');return Promise.resolve(false)}
- const body=JSON.stringify(payload);
- // no-cors allows the browser to send the request to Apps Script despite cross-origin restrictions.
- return fetch(endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body})
-   .then(()=>{status('Google Sheet: Sync sent ✓',true);return true})
-   .catch(()=>{status('Google Sheet: Sync failed');return false});
+ return new Promise(resolve=>{
+   const token='wr_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+   const frame=document.createElement('iframe');
+   const form=document.createElement('form');
+   const field=document.createElement('input');
+   let done=false;
+   frame.name='ziet_write_'+token;
+   frame.style.display='none';
+   form.method='POST';form.action=endpoint;form.target=frame.name;form.style.display='none';
+   field.type='hidden';field.name='payload';
+   field.value=JSON.stringify({...payload,token});
+   form.appendChild(field);
+   function finish(ok,message){
+     if(done)return;done=true;
+     window.removeEventListener('message',onMessage);
+     if(frame.parentNode)frame.parentNode.removeChild(frame);
+     if(form.parentNode)form.parentNode.removeChild(form);
+     status(message,ok);resolve(ok);
+   }
+   function onMessage(event){
+     const d=event.data;
+     if(!d||d.type!=='ZIET_VP_WRITE'||d.token!==token)return;
+     finish(!!d.ok,d.ok?'Google Sheet: Saved and verified ✓':'Google Sheet: '+(d.error||'Save failed'));
+   }
+   window.addEventListener('message',onMessage);
+   document.body.appendChild(frame);document.body.appendChild(form);
+   form.submit();
+   setTimeout(()=>finish(false,'Google Sheet: No confirmation received; check Apps Script deployment'),20000);
+ });
 }
 function addLink(k){
  const t=document.getElementById('t-'+k),u=document.getElementById('u-'+k);
@@ -444,7 +468,10 @@ function syncAllToSheet(){
     box.querySelectorAll('a').forEach(a=>jobs.push(syncResource(k,a.textContent,a.href)));
   });
   if(!jobs.length){status('Google Sheet: Nothing to sync');return}
-  Promise.all(jobs).then(()=>status('Google Sheet: All resources sent ✓',true));
+  Promise.all(jobs).then(results=>{
+    const ok=results.every(Boolean);
+    status(ok?'Google Sheet: All '+results.length+' resources saved and verified ✓':'Google Sheet: Some resources failed; please retry',ok);
+  });
 }
 
 function renderSheetResources(items){
