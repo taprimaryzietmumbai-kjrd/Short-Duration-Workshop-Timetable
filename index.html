@@ -154,6 +154,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <div class="registryActions">
     <button type="button" class="registrySubmit" onclick="registrySave()">Add resource link</button>
     <button type="button" class="print" onclick="registryLoadFromSheet()">↻ Load Registry from Google Sheet</button>
+    <button type="button" class="print" onclick="registryLoadFromCentral()">↻ Load from Central Repository</button>
     <span id="registryStatus" aria-live="polite"></span>
   </div>
   <div id="registryList" class="registryList"></div>
@@ -766,6 +767,17 @@ function registryRemove(id){
  Promise.all([sendToSheet({action:'delete',date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url}),centralDelete(item)])
  .then(v=>registryStatus(v[1]?'Deleted from Central Repository'+(v[0]?' and existing Google Sheet ✓':' ✓'):'Central deletion not confirmed',v[1]))
  .catch(e=>registryStatus('Central delete failed: '+e.message,false));
+}
+async function registryLoadFromCentral(){
+ registryStatus('Loading resources from Central ZIET Repository…');
+ try{
+  const rows=await centralList();
+  const fromCentral=rows.filter(x=>x.sourceApp==='short-duration-workshop-timetable'&&x.status!=='deleted'&&String(x.resourceId||'').startsWith('TIMETABLE-')).map(x=>({
+   id:String(x.resourceId).slice('TIMETABLE-'.length),workshopTitle:x.workshopName||'',day:x.day||'',date:x.date||'',session:x.session||'',title:x.title||'',type:x.resourceType||'Other',url:x.url||''
+  })).filter(x=>x.id&&valid(x.url));
+  registryItems=fromCentral;registryPersist();
+  registryStatus('Loaded '+fromCentral.length+' resources from Central Repository ✓',true);
+ }catch(e){registryStatus('Central Repository load failed: '+e.message,false)}
 }
 function registryLoadFromSheet(){
  const endpoint=getWebApp();if(!endpoint){registryStatus('Google Sheet is not configured.');return}
