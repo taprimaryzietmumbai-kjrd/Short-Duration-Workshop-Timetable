@@ -154,7 +154,6 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <div class="registryActions">
     <button type="button" class="registrySubmit" onclick="registrySave()">Add resource link</button>
     <button type="button" class="print" onclick="registryLoadFromCentral()">↻ Refresh from Central Repository</button>
-    <button type="button" class="save" onclick="registrySyncAllToCentral()">⇧ Migrate / Sync listed resources to Central Repository</button>
     <a class="print" href="https://taprimaryzietmumbai-kjrd.github.io/ZIET-MUMBAL-REOURCES-REPOSITORY-/" target="_blank" rel="noopener" style="display:inline-block;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:700">Open Central Resource Repository ↗</a>
     <span id="registryStatus" aria-live="polite"></span>
   </div>
@@ -726,7 +725,7 @@ async function centralDelete(item){const id=centralResourceId(item);await centra
 function registrySheetPayload(item,action='upsert'){
  return {action,date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url,day:item.day,resourceType:item.type,registryId:item.id,workshopTitle:item.workshopTitle};
 }
-function registrySave(){
+async function registrySave(){
  const workshopTitle=document.getElementById('registryWorkshopTitle').value.trim();
  const day=document.getElementById('registryDay').value;
  const date=registryDateToISO(document.getElementById('registryDate').value);
@@ -737,17 +736,17 @@ function registrySave(){
  if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please complete all required fields. For Date, enter DD/MM/YYYY using /, . or - as the separator. Examples: 06/11/2026, 06.11.2026 or 06-11-2026.');return}
  const id=registryEditingId||('rr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
  const item={id,workshopTitle,day,date,session,title,type,url};
- const previous=registryItems.find(x=>x.id===id);
- let priorDelete=Promise.resolve(true);
- if(previous){
-  registryItems=registryItems.map(x=>x.id===id?item:x);
-  priorDelete=sendToSheet({action:'delete',date:previous.date,session:previous.session,topic:previous.day+' | '+previous.type,speaker:'',cellId:'registry-'+previous.id,title:previous.title,url:previous.url});
- }else registryItems.push(item);
- registryPersist();
- priorDelete.then(()=>Promise.all([sendToSheet(registrySheetPayload(item)),centralSave(item)])).then(v=>registryStatus(v[1]?'Saved to Central Repository'+(v[0]?' and existing Google Sheet ✓':' ✓'):'Central save not confirmed',v[1])).catch(e=>registryStatus('Central sync failed: '+e.message,false));
- registryEditingId=null;
- document.getElementById('registryTitle').value='';
- document.getElementById('registryUrl').value='';
+ registryStatus('Saving directly to Central ZIET Resource Repository…');
+ try{
+  await centralSave(item);
+  const index=registryItems.findIndex(x=>x.id===id);
+  if(index>=0)registryItems[index]=item;else registryItems.push(item);
+  registryPersist();
+  registryStatus('Saved and verified in Central Repository ✓',true);
+  registryEditingId=null;
+  document.getElementById('registryTitle').value='';
+  document.getElementById('registryUrl').value='';
+ }catch(e){registryStatus('Central save failed. Resource was not confirmed: '+e.message,false)}
 }
 function registryEdit(id){
  const item=registryItems.find(x=>x.id===id);if(!item)return;
@@ -763,13 +762,15 @@ function registryEdit(id){
  document.getElementById('registryTitle').focus();
  registryStatus('Editing resource. Select Add resource link to save changes.');
 }
-function registryRemove(id){
+async function registryRemove(id){
  const item=registryItems.find(x=>x.id===id);if(!item)return;
- if(!confirm('Remove "'+item.title+'" from the Resource Registry?'))return;
- registryItems=registryItems.filter(x=>x.id!==id);registryPersist();
- Promise.all([sendToSheet({action:'delete',date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url}),centralDelete(item)])
- .then(v=>registryStatus(v[1]?'Deleted from Central Repository'+(v[0]?' and existing Google Sheet ✓':' ✓'):'Central deletion not confirmed',v[1]))
- .catch(e=>registryStatus('Central delete failed: '+e.message,false));
+ if(!confirm('Remove "'+item.title+'" from the Central Resource Repository?'))return;
+ registryStatus('Deleting from Central Repository…');
+ try{
+  await centralDelete(item);
+  registryItems=registryItems.filter(x=>x.id!==id);registryPersist();
+  registryStatus('Deleted and verified in Central Repository ✓',true);
+ }catch(e){registryStatus('Central delete failed; record retained in the list: '+e.message,false)}
 }
 async function registrySyncAllToCentral(){
  if(!registryItems.length){registryStatus('No resources are currently listed in this browser. Load them from the existing Google Sheet first, or add resources.',false);return}
@@ -831,11 +832,7 @@ function registryLoadFromSheet(options={}){
 async function registryBootstrap(){
  registryStatus('Connecting to Central ZIET Resource Repository…');
  try{
-  const rows=await centralList();
-  const centralItems=rows.filter(x=>x.sourceApp==='short-duration-workshop-timetable'&&x.status!=='deleted'&&String(x.resourceId||'').startsWith('TIMETABLE-')).map(x=>({id:String(x.resourceId).slice(10),workshopTitle:x.workshopName||'',day:x.day||'',date:x.date||'',session:x.session||'',title:x.title||'',type:x.resourceType||'Other',url:x.url||''})).filter(x=>x.id&&x.workshopTitle&&x.title&&valid(x.url));
-  registryItems=centralItems;registryPersist();
-  registryStatus('Connected to Central Repository. Checking for older resources to migrate…',true);
-  registryLoadFromSheet({silent:true,migrate:true});
+  await registryLoadFromCentral();
  }catch(e){
   registryStatus('Central Repository connection failed: '+e.message+'. Existing browser records have been retained.',false);
  }
