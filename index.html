@@ -94,7 +94,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <h2>Resource Registry Updation</h2>
   <p>Register presentations, PDFs, audio, videos, feedback forms and other learning materials against the relevant workshop day, date and session. Records are saved to the existing Google Sheet.</p>
   <div class="registryGrid">
-    <div class="registryField"><label for="registryWorkshopTitle">Workshop Title *</label><input id="registryWorkshopTitle" type="text" placeholder="Enter or use the title from the timetable header" required></div>
+    <div class="registryField"><label for="registryWorkshopTitle">Workshop Title *</label><select id="registryWorkshopTitle" required><option value="">Select workshop from ZIET Weekly Calendar</option></select></div>
     <div class="registryField"><label for="registryDay">Day *</label><select id="registryDay"><option value="">Select Day</option></select></div>
     <div class="registryField"><label for="registryDate">Date *</label><input id="registryDate" type="date"></div>
     <div class="registryField"><label for="registrySession">Session *</label><select id="registrySession"><option value="">Select Session</option><option>Morning Assembly</option><option>Session 1</option><option>Session 2</option><option>Session 3</option><option>Session 4</option></select></div>
@@ -717,12 +717,59 @@ function registryInit(){
  registryRenderList();
 }
 registryInit();
+const ZIET_WEEKLY_CALENDAR_WORKSHOPS = [
+ "Webinar on Transforming School Education through Technology and Artificial Intelligence by Prof Ramkumar Rajendran IIT Mumbai on 08.04.2026 KVS ZIET Mumbai",
+ "Orientation Programme for Master Trainers on New Social Science Textbooks with Focus on Competency-Based Education (CBE) from 20-23 April 2026 at KVS ZIET Mumbai",
+ "Orientation Programme for Master Trainers on New Maths Textbooks with Focus on Competency-Based Education (CBE) from 20-23 April 2026 at KVS ZIET Mumbai",
+ "Orientation Programme for Master Trainers on New English Textbooks with Focus on Competency-Based Education (CBE) from 27-30 April 2026 at KVS ZIET Mumbai",
+ "Orientation Programme for Master Trainers on New Science Textbooks with Focus on Competency-Based Education (CBE) from 27-30 April 2026 at KVS ZIET Mumbai",
+ "Orientation Programme for Master Trainers on New Sanskrit Textbooks with Focus on Competency-Based Education (CBE) from 05-08 May 2026 at KVS ZIET Mumbai",
+ "Directive Leadership for Foundational and Initial Excellence (5-day live workshop from May 5 to May 9, 2026) at KVS ZIET Mumbai",
+ "5-Day Workshop for Revision of SSM from 12-16 May 2026 at KVS ZIET Mumbai",
+ "3-Day Workshop for E-Content Vetting from 12-14 May 2026 at KVS ZIET Mumbai",
+ "5-day workshop on Developing Leadership Competencies for Academic Excellence",
+ "5-day offline workshop on ‘Strategic School Leadership: Academic Rigor, Administrative Efficiency & Financial Prudence’ from 01.06.2026 to 05.06.2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on ‘Learning Economics through Experience and Real-World Applications’ from 15.06.2026 to 18.06.2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on ‘Experiential and Inquiry-Based Learning in Physics Classrooms’ from 15.06.2026 to 18.06.2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “From Content to Competencies: Innovative Chemistry Pedagogies” from 22.06.2026 to 25.06.2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “Innovative interventions in Mathematics classrooms: a competency-driven approach” from 22.06.2026 to 25.06.2026 at KVS ZIET Mumbai",
+ "4-day offline Orientation Programme for Master Trainers on New Hindi Textbooks with Focus on Competency-Based Education (CBE) 06.07.2026 to 09.07.2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on ‘Innovative Pedagogies in Teaching Geography’ 06.07.2026 to 09.07.2026 at KVS ZIET Mumbai",
+ "4-day workshop on ‘Fostering Critical & Creative Thinking in English Classrooms’",
+ "4-day offline workshop on Competency-based Hindi Teaching from 20.07.2026 to 23.07.2026 at KVS ZIET Mumbai",
+ "4-day workshop on ‘Smart Code for Every Learner: Teaching Computer Science with AI & Orange Data Mining’ 27.07.2026 to 30.07.2026",
+ "Batch 1 – ‘Nurturing Foundations: Play-Based & Experiential Learning in Balvatika’ for Balvatika Teachers",
+ "Batch 2 – ‘Nurturing Foundations: Play-Based & Experiential Learning in Balvatika’ for Balvatika Teachers",
+ "4-day offline workshop on “Experiential & Activity-based teaching of English for Joyful Learning” for TGT (English) from 3-6 August 2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “अनुभवात्मक एवं संवादात्मक हिन्दी कक्षा: सक्रिय अधिगम की ओर” for TGT (Hindi) from 10-13 August 2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “From Concept to Clarity: Creating Meaningful Mathematics Teaching Experiences” for TGT (Maths) from 17-20 August 2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “Building Blocks of Learning: Foundational Literacy & Numeracy in Action” for Primary Teachers from 17-20 August 2026 at KVS ZIET Mumbai",
+ "3-day offline workshop on “School Safety in Disaster” from 27-29 August 2026 at KVS ZIET Mumbai",
+ "4-day offline workshop on “Transforming Biology Teaching from content delivery to Competency development and Assessment”",
+ "4-day workshop on “Sounds to Sense: Strengthening Language acquisition through Phonics and Meaning making”",
+ "5-day workshop on “Developing Leadership Competencies for Academic Excellence”",
+ "संस्कृत एवं भारतीय ज्ञान परंपरा: समकालीन शिक्षा में एकीकरण",
+ "Experiential & Inquiry-Based Approaches in Teaching of Social Science",
+ "4-day workshop on ‘Educational Leadership’ by APU for Vice Principals, at ZIET Mumbai from 21.09.2026 to 24.09.2026",
+ "5-day workshop on “Where Art Meets Experience: Transforming Classroom Pedagogy” for TGT (AE) from 27.09.2026 to 01.10.2026",
+ "5-day workshop on Rhythm, Raga and Reflection: Reimagining Music Education with Bansuri for PRT (Music) from 27.09.2026 to 01.10.2026",
+ "5-DAY FACE-TO-FACE TRAINING PROGRAMME FOR MASTER TRAINERS OF PM SHRI SCHOOLS OF ASSAM STATE GOVERNMENT FROM 06.10.2026 TO 10.10.2026",
+ "5-day Workshop on “Where Art Meets Experience: Transforming Classroom Pedagogy” for TGT (AE) from 12-16 October 2026 KVS ZIET Mumbai",
+ "5-day Workshop on “Rhythm, Raga and Reflection: Reimagining Music Education with Bansuri” for PRT (Music) from 12-16 October 2026 KVS ZIET Mumbai",
+ "1-day Training Programme on “Civic Behaviour and Cleanliness Initiatives” at KVS ZIET Mumbai",
+ "5-day workshop on “Transforming Library through Automation and Digital tools” at KVS ZIET Mumbai",
+ "5-day workshop on “Physical Education as a Foundation for Holistic Developmen” at KVS ZIET Mumbai",
+ "5-day workshop on “Rhythm, Raga and Reflection: Reimagining Music Education with Bansuri” at KVS ZIET Mumbai (02.11.2026 to 06.11.2026)",
+ "5-day workshop on “Transforming Library through automation and digital tools” at KVS ZIET Mumbai (10.11.2026 to 14.11.2026)"
+];
 const registryWorkshopTitleField=document.getElementById('registryWorkshopTitle');
-const mainWorkshopTitleField=document.getElementById('workshopTitleInput');
-if(registryWorkshopTitleField && mainWorkshopTitleField){
- registryWorkshopTitleField.value=mainWorkshopTitleField.value.trim();
- mainWorkshopTitleField.addEventListener('input',()=>{if(!registryWorkshopTitleField.value.trim() || registryWorkshopTitleField.dataset.auto==='true'){registryWorkshopTitleField.value=mainWorkshopTitleField.value.trim();registryWorkshopTitleField.dataset.auto='true';}});
- registryWorkshopTitleField.addEventListener('input',()=>{registryWorkshopTitleField.dataset.auto='false';});
+if(registryWorkshopTitleField){
+ ZIET_WEEKLY_CALENDAR_WORKSHOPS.forEach(title=>{
+  const option=document.createElement('option');option.value=title;option.textContent=title;registryWorkshopTitleField.appendChild(option);
+ });
+ const currentHeader=document.getElementById('workshopTitleInput').value.trim();
+ const exact=ZIET_WEEKLY_CALENDAR_WORKSHOPS.find(title=>title===currentHeader);
+ if(exact)registryWorkshopTitleField.value=exact;
 }
 
 function restore(){
