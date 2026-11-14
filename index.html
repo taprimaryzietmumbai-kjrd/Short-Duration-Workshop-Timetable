@@ -96,7 +96,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <div class="registryGrid">
     <div class="registryField"><label for="registryWorkshopTitle">Workshop Title *</label><select id="registryWorkshopTitle" required><option value="">Select workshop from ZIET Weekly Calendar</option></select></div>
     <div class="registryField"><label for="registryDay">Day *</label><select id="registryDay"><option value="">Select Day</option></select></div>
-    <div class="registryField"><label for="registryDate">Date *</label><input id="registryDate" type="date"></div>
+    <div class="registryField"><label for="registryDate">Date (dd/mm/yyyy) *</label><input id="registryDate" type="text" inputmode="numeric" placeholder="dd/mm/yyyy" maxlength="10" pattern="\\d{2}/\\d{2}/\\d{4}" autocomplete="off"></div>
     <div class="registryField"><label for="registrySession">Session *</label><select id="registrySession"><option value="">Select Session</option><option>Morning Assembly</option><option>Session 1</option><option>Session 2</option><option>Session 3</option><option>Session 4</option></select></div>
     <div class="registryField"><label for="registryTitle">Resource title *</label><input id="registryTitle" type="text" placeholder="e.g. Day 1 presentation"></div>
     <div class="registryField"><label for="registryType">Resource type</label><select id="registryType"><option>PPT / Presentation</option><option>PDF / Reading</option><option>Audio</option><option>Video</option><option>Feedback / Form</option><option>Other</option></select></div>
@@ -609,8 +609,19 @@ function registryAddDay(){
 function registryAddDate(){
  const field=document.getElementById('registryDate');
  field.focus();
- if(typeof field.showPicker==='function'){try{field.showPicker()}catch(e){}}
- registryStatus('Choose the date from the calendar, then continue.',true);
+ registryStatus('Enter the date in dd/mm/yyyy format.',true);
+}
+function registryDateToISO(value){
+ const m=String(value||'').trim().match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})$/);
+ if(!m)return '';
+ const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]);
+ const d=new Date(year,month-1,day);
+ if(d.getFullYear()!==year||d.getMonth()!==month-1||d.getDate()!==day)return '';
+ return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function registryDateToDisplay(value){
+ const m=String(value||'').match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+ return m?m[3]+'/'+m[2]+'/'+m[1]:value;
 }
 function registryAddSession(){
  const name=prompt('Enter the session name (e.g. Special Lecture / Valedictory):');
@@ -644,12 +655,12 @@ function registrySheetPayload(item,action='upsert'){
 function registrySave(){
  const workshopTitle=document.getElementById('registryWorkshopTitle').value.trim();
  const day=document.getElementById('registryDay').value;
- const date=document.getElementById('registryDate').value;
+ const date=registryDateToISO(document.getElementById('registryDate').value);
  const session=document.getElementById('registrySession').value;
  const title=document.getElementById('registryTitle').value.trim();
  const type=document.getElementById('registryType').value;
  const url=document.getElementById('registryUrl').value.trim();
- if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please enter the Workshop Title, select Day, Date and Session, enter a resource title and provide a valid shareable URL.');return}
+ if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please enter the Workshop Title, select Day, enter a valid date in dd/mm/yyyy format, select Session, enter a resource title and provide a valid shareable URL.');return}
  const id=registryEditingId||('rr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
  const item={id,workshopTitle,day,date,session,title,type,url};
  const previous=registryItems.find(x=>x.id===id);
@@ -670,7 +681,7 @@ function registryEdit(id){
  document.getElementById('registryWorkshopTitle').value=item.workshopTitle||document.getElementById('workshopTitleInput').value.trim();
  registryRenderOptions();
  document.getElementById('registryDay').value=item.day;
- document.getElementById('registryDate').value=item.date;
+ document.getElementById('registryDate').value=registryDateToDisplay(item.date);
  document.getElementById('registrySession').value=item.session;
  document.getElementById('registryTitle').value=item.title;
  document.getElementById('registryType').value=item.type;
@@ -771,9 +782,8 @@ if(registryWorkshopTitleField){
   const selected=registryWorkshopTitleField.selectedOptions[0];
   if(selected && selected.dataset.start){
    const dateField=document.getElementById('registryDate');
-   dateField.value=selected.dataset.start;
-   dateField.min=selected.dataset.start;dateField.max=selected.dataset.end;
-   dateField.title='Official calendar dates: '+selected.dataset.start+' to '+selected.dataset.end+'. Choose the actual resource date within this range.';
+   dateField.value=registryDateToDisplay(selected.dataset.start);
+   dateField.title='Official calendar dates: '+registryDateToDisplay(selected.dataset.start)+' to '+registryDateToDisplay(selected.dataset.end)+'. Enter the actual resource date in dd/mm/yyyy format.';
   }
  });
  const currentHeader=document.getElementById('workshopTitleInput').value.trim();
