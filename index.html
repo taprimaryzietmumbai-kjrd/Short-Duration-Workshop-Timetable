@@ -819,14 +819,8 @@ const ZIET_WEEKLY_CALENDAR_WORKSHOPS = [
 ];
 const registryWorkshopTitleField=document.getElementById('registryWorkshopTitle');
 if(registryWorkshopTitleField){
- registryWorkshopTitleField.addEventListener('change',()=>{
-  const selected=registryWorkshopTitleField.selectedOptions[0];
-  if(selected && selected.dataset.start){
-   const dateField=document.getElementById('registryDate');
-   dateField.value=registryDateToDisplay(selected.dataset.start);
-   dateField.title='Official calendar dates: '+registryDateToDisplay(selected.dataset.start)+' to '+registryDateToDisplay(selected.dataset.end)+'. Enter the actual resource date in dd/mm/yyyy format.';
-  }
- });
+ // Workshop selection does not populate or change the Date field.
+ // The user enters the resource date manually in DD/MM/YYYY format.
  const currentHeader=document.getElementById('workshopTitleInput').value.trim();
  const exact=ZIET_WEEKLY_CALENDAR_WORKSHOPS.find(item=>item.title===currentHeader);
  if(exact)registryWorkshopTitleField.value=exact.title;
