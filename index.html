@@ -694,6 +694,31 @@ function registryRenderList(){
   card.append(heading,meta,link,edit,remove);list.appendChild(card);
  });
 }
+const CENTRAL_RESOURCE_API='https://script.google.com/macros/s/AKfycbzIctgo8aocYxNHquk9I0V6IywdVLiC0zdyPnIycCvIGcfQshQuBeUk79hjdUUHI-oYsg/exec';
+function centralWorkshopId(name){let h=2166136261;for(let c of String(name||'')){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return 'ZIET-'+(h>>>0).toString(16).toUpperCase()}
+function centralResourceId(item){return 'TIMETABLE-'+item.id}
+function centralPost(body){
+ return new Promise((resolve,reject)=>{
+  const name='zietpost'+Date.now()+Math.random().toString(36).slice(2),f=document.createElement('iframe'),form=document.createElement('form'),input=document.createElement('input');
+  f.name=name;f.style.display='none';form.method='POST';form.action=CENTRAL_RESOURCE_API;form.target=name;form.style.display='none';input.type='hidden';input.name='payload';input.value=JSON.stringify(body);form.appendChild(input);
+  let done=false;const finish=()=>{if(done)return;done=true;setTimeout(()=>{f.remove();form.remove()},300);resolve(true)};
+  f.onload=()=>{if(f.dataset.sent==='1')finish()};document.body.append(f,form);f.dataset.sent='1';form.submit();
+  setTimeout(()=>{if(!done){f.remove();form.remove();reject(new Error('Central API write timed out'))}},12000);
+ });
+}
+function centralList(){
+ return new Promise((resolve,reject)=>{
+  const cb='zietcb'+Date.now()+Math.random().toString(36).slice(2).replace(/[^a-z0-9]/gi,''),sc=document.createElement('script');let done=false;
+  const end=()=>{if(done)return;done=true;delete window[cb];sc.remove()};
+  window[cb]=d=>{end();d&&d.success&&Array.isArray(d.resources)?resolve(d.resources):reject(new Error('Invalid central API response'))};
+  sc.onerror=()=>{end();reject(new Error('Central API read failed'))};
+  sc.src=CENTRAL_RESOURCE_API+'?action=list&callback='+cb+'&_='+Date.now();document.head.appendChild(sc);
+  setTimeout(()=>{if(!done){end();reject(new Error('Central API read timed out'))}},15000);
+ });
+}
+function centralRecord(item){return {resourceId:centralResourceId(item),workshopId:centralWorkshopId(item.workshopTitle),workshopName:item.workshopTitle,day:item.day,date:item.date,session:item.session,title:item.title,resourceType:item.type,url:item.url,description:'Timetable resource registry',speaker:'',sourceApp:'short-duration-workshop-timetable',status:'active'}}
+async function centralSave(item){const resource=centralRecord(item);await centralPost({action:'upsert',sourceApp:'short-duration-workshop-timetable',resource});const rows=await centralList();if(!rows.some(x=>x.resourceId===resource.resourceId&&x.status!=='deleted'))throw new Error('Central repository did not confirm saved resource');return true}
+async function centralDelete(item){const id=centralResourceId(item);await centralPost({action:'delete',resourceId:id,sourceApp:'short-duration-workshop-timetable'});const rows=await centralList();if(rows.some(x=>x.resourceId===id&&x.status!=='deleted'))throw new Error('Central repository still shows resource as active');return true}
 function registrySheetPayload(item,action='upsert'){
  return {action,date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url,day:item.day,resourceType:item.type,registryId:item.id,workshopTitle:item.workshopTitle};
 }
@@ -715,7 +740,7 @@ function registrySave(){
   priorDelete=sendToSheet({action:'delete',date:previous.date,session:previous.session,topic:previous.day+' | '+previous.type,speaker:'',cellId:'registry-'+previous.id,title:previous.title,url:previous.url});
  }else registryItems.push(item);
  registryPersist();
- priorDelete.then(()=>sendToSheet(registrySheetPayload(item))).then(ok=>registryStatus(ok?'Resource saved to this browser and Google Sheet ✓':'Saved in this browser; Google Sheet confirmation was not received.',ok));
+ priorDelete.then(()=>Promise.all([sendToSheet(registrySheetPayload(item)),centralSave(item)])).then(v=>registryStatus(v[1]?'Saved to Central Repository'+(v[0]?' and existing Google Sheet ✓':' ✓'):'Central save not confirmed',v[1])).catch(e=>registryStatus('Central sync failed: '+e.message,false));
  registryEditingId=null;
  document.getElementById('registryTitle').value='';
  document.getElementById('registryUrl').value='';
@@ -738,8 +763,9 @@ function registryRemove(id){
  const item=registryItems.find(x=>x.id===id);if(!item)return;
  if(!confirm('Remove "'+item.title+'" from the Resource Registry?'))return;
  registryItems=registryItems.filter(x=>x.id!==id);registryPersist();
- sendToSheet({action:'delete',date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url})
- .then(ok=>registryStatus(ok?'Resource removed from registry and Google Sheet.':'Removed locally; Google Sheet confirmation was not received.',ok));
+ Promise.all([sendToSheet({action:'delete',date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url}),centralDelete(item)])
+ .then(v=>registryStatus(v[1]?'Deleted from Central Repository'+(v[0]?' and existing Google Sheet ✓':' ✓'):'Central deletion not confirmed',v[1]))
+ .catch(e=>registryStatus('Central delete failed: '+e.message,false));
 }
 function registryLoadFromSheet(){
  const endpoint=getWebApp();if(!endpoint){registryStatus('Google Sheet is not configured.');return}
