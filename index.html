@@ -789,14 +789,6 @@ if(registryWorkshopTitleField){
  const currentHeader=document.getElementById('workshopTitleInput').value.trim();
  const exact=ZIET_WEEKLY_CALENDAR_WORKSHOPS.find(item=>item.title===currentHeader);
  if(exact)registryWorkshopTitleField.value=exact.title;
-}const registryWorkshopTitleField=document.getElementById('registryWorkshopTitle');
-if(registryWorkshopTitleField){
- ZIET_WEEKLY_CALENDAR_WORKSHOPS.forEach(title=>{
-  const option=document.createElement('option');option.value=title;option.textContent=title;registryWorkshopTitleField.appendChild(option);
- });
- const currentHeader=document.getElementById('workshopTitleInput').value.trim();
- const exact=ZIET_WEEKLY_CALENDAR_WORKSHOPS.find(title=>title===currentHeader);
- if(exact)registryWorkshopTitleField.value=exact;
 }
 
 function restore(){
