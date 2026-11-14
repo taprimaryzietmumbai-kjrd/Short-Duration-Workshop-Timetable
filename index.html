@@ -140,7 +140,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <option value="5-day workshop on “Transforming Library through automation and digital tools” at KVS ZIET Mumbai" data-start="2026-11-10" data-end="2026-11-14">5-day workshop on “Transforming Library through automation and digital tools” at KVS ZIET Mumbai</option>
 </select></div>
     <div class="registryField"><label for="registryDay">Day *</label><select id="registryDay"><option value="">Select Day</option></select></div>
-    <div class="registryField"><label for="registryDate">Date (dd/mm/yyyy) *</label><input id="registryDate" type="text" inputmode="numeric" placeholder="dd/mm/yyyy" maxlength="10" pattern="\\d{2}/\\d{2}/\\d{4}" autocomplete="off"></div>
+    <div class="registryField"><label for="registryDate">Date *</label><input id="registryDate" type="text" inputmode="numeric" placeholder="DD/MM/YYYY" maxlength="10" autocomplete="off"><small class="muted">Enter day, month and 4-digit year. Separators accepted: slash (/), dot (.) or hyphen (-). Examples: 06/11/2026, 06.11.2026, 06-11-2026.</small></div>
     <div class="registryField"><label for="registrySession">Session *</label><select id="registrySession"><option value="">Select Session</option><option>Morning Assembly</option><option>Session 1</option><option>Session 2</option><option>Session 3</option><option>Session 4</option></select></div>
     <div class="registryField"><label for="registryTitle">Resource title *</label><input id="registryTitle" type="text" placeholder="e.g. Day 1 presentation"></div>
     <div class="registryField"><label for="registryType">Resource type</label><select id="registryType"><option>PPT / Presentation</option><option>PDF / Reading</option><option>Audio</option><option>Video</option><option>Feedback / Form</option><option>Other</option></select></div>
@@ -656,7 +656,8 @@ function registryAddDate(){
  registryStatus('Enter the date in dd/mm/yyyy format.',true);
 }
 function registryDateToISO(value){
- const m=String(value||'').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+ // Accept DD/MM/YYYY, DD.MM.YYYY and DD-MM-YYYY (including mixed separators).
+ const m=String(value||'').trim().match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
  if(!m)return '';
  const day=Number(m[1]),month=Number(m[2]),year=Number(m[3]);
  const d=new Date(year,month-1,day);
@@ -704,7 +705,7 @@ function registrySave(){
  const title=document.getElementById('registryTitle').value.trim();
  const type=document.getElementById('registryType').value;
  const url=document.getElementById('registryUrl').value.trim();
- if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please enter the Workshop Title, select Day, enter a valid date in dd/mm/yyyy format, select Session, enter a resource title and provide a valid shareable URL.');return}
+ if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please complete all required fields. For Date, enter DD/MM/YYYY using /, . or - as the separator. Examples: 06/11/2026, 06.11.2026 or 06-11-2026.');return}
  const id=registryEditingId||('rr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
  const item={id,workshopTitle,day,date,session,title,type,url};
  const previous=registryItems.find(x=>x.id===id);
