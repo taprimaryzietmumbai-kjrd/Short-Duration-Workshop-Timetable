@@ -704,9 +704,11 @@ function centralPost(body){
  return new Promise((resolve,reject)=>{
   const name='zietpost'+Date.now()+Math.random().toString(36).slice(2),f=document.createElement('iframe'),form=document.createElement('form'),input=document.createElement('input');
   f.name=name;f.style.display='none';form.method='POST';form.action=CENTRAL_RESOURCE_API;form.target=name;form.style.display='none';input.type='hidden';input.name='payload';input.value=JSON.stringify(body);form.appendChild(input);
-  let done=false;const finish=()=>{if(done)return;done=true;setTimeout(()=>{f.remove();form.remove()},300);resolve(true)};
-  f.onload=()=>{if(f.dataset.sent==='1')finish()};document.body.append(f,form);f.dataset.sent='1';form.submit();
-  setTimeout(()=>{if(!done){f.remove();form.remove();reject(new Error('Central API write timed out'))}},12000);
+  let phase=0,done=false;
+  const cleanup=()=>{f.remove();form.remove()};
+  f.onload=()=>{if(done)return;if(phase===0){phase=1;form.submit()}else{done=true;clearTimeout(timer);cleanup();resolve(true)}};
+  const timer=setTimeout(()=>{if(!done){done=true;cleanup();reject(new Error('Central API write timed out'))}},15000);
+  document.body.append(f,form);
  });
 }
 function centralList(){
@@ -796,31 +798,48 @@ async function registryLoadFromCentral(){
   registryStatus('Loaded '+fromCentral.length+' resources from Central Repository ✓',true);
  }catch(e){registryStatus('Central Repository load failed: '+e.message,false)}
 }
-function registryLoadFromSheet(){
- const endpoint=getWebApp();if(!endpoint){registryStatus('Google Sheet is not configured.');return}
- registryStatus('Loading registry from Google Sheet…');
+function registryLoadFromSheet(options={}){
+ const endpoint=getWebApp();if(!endpoint){if(!options.silent)registryStatus('Existing Google Sheet is not configured.');return}
+ if(!options.silent)registryStatus('Checking legacy Google Sheet for records to migrate…');
  const token='rg_'+Date.now()+'_'+Math.random().toString(36).slice(2);
  const frame=document.createElement('iframe');frame.style.display='none';
  frame.src=endpoint+'?action=list&token='+encodeURIComponent(token);
  let done=false;
  const finish=()=>{if(frame.parentNode)frame.parentNode.removeChild(frame);window.removeEventListener('message',onMessage)};
- const timer=setTimeout(()=>{if(done)return;done=true;finish();registryStatus('Registry load timed out; showing browser copy.')},15000);
- const onMessage=event=>{
+ const timer=setTimeout(()=>{if(done)return;done=true;finish();if(!options.silent)registryStatus('Legacy Google Sheet load timed out; Central Repository records remain available.',false)},15000);
+ const onMessage=async event=>{
   const d=event.data;
   if(!d||d.type!=='ZIET_VP_RESOURCES'||d.token!==token||done)return;
   done=true;clearTimeout(timer);finish();
-  if(!d.ok||!Array.isArray(d.resources)){registryStatus('Could not load registry from Google Sheet.');return}
+  if(!d.ok||!Array.isArray(d.resources)){if(!options.silent)registryStatus('Could not read the legacy Google Sheet.',false);return}
   const fromSheet=d.resources.filter(x=>String(x.cellId||'').startsWith('registry-')).map(x=>{
-   const id=String(x.cellId).slice(9);
-   const bits=String(x.topic||'').split(' | ');
-   return {id,day:bits[0]||x.day||'',date:x.date||'',session:x.session||'',title:x.title||'',type:x.resourceType||bits[1]||'Other',url:x.url||''};
-  }).filter(x=>x.id&&valid(x.url));
-  if(fromSheet.length){
-   registryItems=fromSheet;registryPersist();
-   registryStatus('Loaded '+fromSheet.length+' registry resources from Google Sheet ✓',true);
-  }else registryStatus('No registry records found in the Google Sheet yet; browser records retained.');
+   const id=String(x.cellId).slice(9),bits=String(x.topic||'').split(' | ');
+   return {id,workshopTitle:x.workshopTitle||'',day:bits[0]||x.day||'',date:x.date||'',session:x.session||'',title:x.title||'',type:x.resourceType||bits[1]||'Other',url:x.url||''};
+  }).filter(x=>x.id&&x.workshopTitle&&x.title&&valid(x.url));
+  if(!fromSheet.length){if(!options.silent)registryStatus('No complete legacy registry records found. Central Repository remains unchanged.',true);return}
+  const current=new Map(registryItems.map(x=>[x.id,x]));
+  fromSheet.forEach(x=>{if(!current.has(x.id))current.set(x.id,x)});
+  registryItems=Array.from(current.values());registryPersist();
+  if(options.migrate){
+   let migrated=0,failed=[];
+   for(const item of fromSheet){try{await centralSave(item);migrated++}catch(e){failed.push(item.title+': '+e.message)}}
+   if(failed.length)registryStatus('Legacy migration: '+migrated+'/'+fromSheet.length+' confirmed in Central Repository. Failed: '+failed.join(' | '),false);
+   else registryStatus('Central Repository ready. '+migrated+' legacy resource(s) migrated and verified.',true);
+  }else if(!options.silent)registryStatus('Loaded '+fromSheet.length+' legacy resource(s). Use migration to transfer them to Central Repository.',true);
  };
  window.addEventListener('message',onMessage);document.body.appendChild(frame);
+}
+async function registryBootstrap(){
+ registryStatus('Connecting to Central ZIET Resource Repository…');
+ try{
+  const rows=await centralList();
+  const centralItems=rows.filter(x=>x.sourceApp==='short-duration-workshop-timetable'&&x.status!=='deleted'&&String(x.resourceId||'').startsWith('TIMETABLE-')).map(x=>({id:String(x.resourceId).slice(10),workshopTitle:x.workshopName||'',day:x.day||'',date:x.date||'',session:x.session||'',title:x.title||'',type:x.resourceType||'Other',url:x.url||''})).filter(x=>x.id&&x.workshopTitle&&x.title&&valid(x.url));
+  registryItems=centralItems;registryPersist();
+  registryStatus('Connected to Central Repository. Checking for older resources to migrate…',true);
+  registryLoadFromSheet({silent:true,migrate:true});
+ }catch(e){
+  registryStatus('Central Repository connection failed: '+e.message+'. Existing browser records have been retained.',false);
+ }
 }
 function registryInit(){
  registryLoadMeta();registryRenderOptions();
@@ -828,6 +847,7 @@ function registryInit(){
  registryRenderList();
 }
 registryInit();
+registryBootstrap();
 const ZIET_WEEKLY_CALENDAR_WORKSHOPS = [
  {title:"Webinar on Transforming School Education through Technology and Artificial Intelligence by Prof Ramkumar Rajendran IIT Mumbai on 08.04.2026 KVS ZIET Mumbai",start:"2026-04-08",end:"2026-04-08"},
  {title:"Orientation Programme for Master Trainers on New Social Science Textbooks with Focus on Competency-Based Education (CBE) from 20-23 April 2026 at KVS ZIET Mumbai",start:"2026-04-20",end:"2026-04-23"},
