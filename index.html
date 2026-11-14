@@ -94,6 +94,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <h2>Resource Registry Updation</h2>
   <p>Register presentations, PDFs, audio, videos, feedback forms and other learning materials against the relevant workshop day, date and session. Records are saved to the existing Google Sheet.</p>
   <div class="registryGrid">
+    <div class="registryField"><label for="registryWorkshopTitle">Workshop Title *</label><input id="registryWorkshopTitle" type="text" placeholder="Enter or use the title from the timetable header" required></div>
     <div class="registryField"><label for="registryDay">Day *</label><select id="registryDay"><option value="">Select Day</option></select></div>
     <div class="registryField"><label for="registryDate">Date *</label><input id="registryDate" type="date"></div>
     <div class="registryField"><label for="registrySession">Session *</label><select id="registrySession"><option value="">Select Session</option><option>Morning Assembly</option><option>Session 1</option><option>Session 2</option><option>Session 3</option><option>Session 4</option></select></div>
@@ -630,7 +631,7 @@ function registryRenderList(){
  registryItems.forEach(item=>{
   const card=document.createElement('div');card.className='registryEntry';
   const heading=document.createElement('strong');heading.textContent=item.title;
-  const meta=document.createElement('div');meta.className='meta';meta.textContent=[item.day,item.date,item.session,item.type].filter(Boolean).join(' · ');
+  const meta=document.createElement('div');meta.className='meta';meta.textContent=[item.workshopTitle,item.day,item.date,item.session,item.type].filter(Boolean).join(' · ');
   const link=document.createElement('a');link.href=item.url;link.target='_blank';link.rel='noopener';link.textContent=item.url;
   const edit=document.createElement('button');edit.className='edit';edit.textContent='Edit';edit.onclick=()=>registryEdit(item.id);
   const remove=document.createElement('button');remove.className='remove';remove.textContent='Remove';remove.onclick=()=>registryRemove(item.id);
@@ -638,18 +639,19 @@ function registryRenderList(){
  });
 }
 function registrySheetPayload(item,action='upsert'){
- return {action,date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url,day:item.day,resourceType:item.type,registryId:item.id};
+ return {action,date:item.date,session:item.session,topic:item.day+' | '+item.type,speaker:'',cellId:'registry-'+item.id,title:item.title,url:item.url,day:item.day,resourceType:item.type,registryId:item.id,workshopTitle:item.workshopTitle};
 }
 function registrySave(){
+ const workshopTitle=document.getElementById('registryWorkshopTitle').value.trim();
  const day=document.getElementById('registryDay').value;
  const date=document.getElementById('registryDate').value;
  const session=document.getElementById('registrySession').value;
  const title=document.getElementById('registryTitle').value.trim();
  const type=document.getElementById('registryType').value;
  const url=document.getElementById('registryUrl').value.trim();
- if(!day||!date||!session||!title||!valid(url)){alert('Please select Day, Date and Session, enter a resource title and provide a valid shareable URL.');return}
+ if(!workshopTitle||!day||!date||!session||!title||!valid(url)){alert('Please enter the Workshop Title, select Day, Date and Session, enter a resource title and provide a valid shareable URL.');return}
  const id=registryEditingId||('rr_'+Date.now()+'_'+Math.random().toString(36).slice(2,8));
- const item={id,day,date,session,title,type,url};
+ const item={id,workshopTitle,day,date,session,title,type,url};
  const previous=registryItems.find(x=>x.id===id);
  let priorDelete=Promise.resolve(true);
  if(previous){
@@ -665,6 +667,7 @@ function registrySave(){
 function registryEdit(id){
  const item=registryItems.find(x=>x.id===id);if(!item)return;
  registryEditingId=id;
+ document.getElementById('registryWorkshopTitle').value=item.workshopTitle||document.getElementById('workshopTitleInput').value.trim();
  registryRenderOptions();
  document.getElementById('registryDay').value=item.day;
  document.getElementById('registryDate').value=item.date;
@@ -714,6 +717,13 @@ function registryInit(){
  registryRenderList();
 }
 registryInit();
+const registryWorkshopTitleField=document.getElementById('registryWorkshopTitle');
+const mainWorkshopTitleField=document.getElementById('workshopTitleInput');
+if(registryWorkshopTitleField && mainWorkshopTitleField){
+ registryWorkshopTitleField.value=mainWorkshopTitleField.value.trim();
+ mainWorkshopTitleField.addEventListener('input',()=>{if(!registryWorkshopTitleField.value.trim() || registryWorkshopTitleField.dataset.auto==='true'){registryWorkshopTitleField.value=mainWorkshopTitleField.value.trim();registryWorkshopTitleField.dataset.auto='true';}});
+ registryWorkshopTitleField.addEventListener('input',()=>{registryWorkshopTitleField.dataset.auto='false';});
+}
 
 function restore(){
   // Google Sheet is the central database. Load it first on every device/browser.
