@@ -31,6 +31,35 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 @media(max-width:760px){.matrixGrid{grid-template-columns:1fr}}
 @media print{#sessionMatrix{display:none}}
 @media print{.bar,.note{display:none}table{width:100%}.resource input,.resource button{display:none}.resource{font-size:9px}}
+/* Dedicated one-page A4 landscape final timetable print */
+@page{size:A4 landscape;margin:6mm}
+@media print{
+ body.print-final{background:#fff!important;color:#111!important;zoom:.78}
+ body.print-final>header{display:block!important;background:#fff!important;color:#111!important;padding:2mm 0 3mm!important;break-after:avoid}
+ body.print-final>header .hi{font-size:10pt!important}
+ body.print-final>header .en{font-size:8pt!important;margin-top:1mm!important}
+ body.print-final>header .title{font-size:12pt!important;margin:1mm!important}
+ body.print-final>header #durationDisplay,body.print-final>header .sub{font-size:8pt!important;margin-top:1mm!important}
+ body.print-final>header>div:last-child{font-size:9pt!important;margin-top:1mm!important}
+ body.print-final .wrap{padding:0!important;overflow:visible!important}
+ body.print-final .wrap>.bar,
+ body.print-final .wrap>.note,
+ body.print-final #resourceRegistry,
+ body.print-final #sessionMatrix{display:none!important}
+ body.print-final .wrap>table{display:table!important;width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;margin:0!important;break-inside:avoid!important}
+ body.print-final .wrap>table th,
+ body.print-final .wrap>table td{border:1px solid #555!important;padding:2.2mm 1.5mm!important;vertical-align:top!important;overflow-wrap:anywhere!important}
+ body.print-final .wrap>table th{font-size:7pt!important;line-height:1.1!important;padding:2mm 1mm!important;background:#e7edf2!important;color:#111!important}
+ body.print-final .wrap>table td{font-size:6.4pt!important;line-height:1.12!important}
+ body.print-final .wrap>table th:nth-child(1){width:11%!important}
+ body.print-final .wrap>table th:nth-child(2){width:13%!important}
+ body.print-final .wrap>table th:nth-child(n+3){width:19%!important}
+ body.print-final .wrap>table .date{font-size:6.4pt!important;background:#f0f3f5!important}
+ body.print-final .wrap>table .topic{font-size:7pt!important;line-height:1.12!important;margin:0 0 1.2mm!important}
+ body.print-final .wrap>table .speaker{font-size:6pt!important;line-height:1.1!important}
+ body.print-final .wrap>table .resource{display:none!important}
+ body.print-final .wrap>table tr{break-inside:avoid!important;page-break-inside:avoid!important}
+}
 
 .registryPanel{max-width:1550px;margin:0 auto 14px;padding:16px;background:#fff;border:1px solid #d4dee6;border-radius:8px}
 .registryPanel h2{margin:0 0 6px;color:#173f63;font-size:18px}
@@ -164,7 +193,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <h2>Session Planning Matrix — 5 Days × Morning Assembly + 4 Sessions</h2>
   <p>Edit Morning Assembly and all four sessions for each day. Enter the heading, speaker name, designation, and organization. Select <b>Apply to Timetable</b> to update the schedule below.</p>
   <div id="matrixGrid" class="matrixGrid"></div>
-  <div class="matrixActions"><button type="button" class="save" onclick="applySessionMatrix()">Apply to Timetable</button><button type="button" class="print" onclick="saveSessionMatrix()">Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><span id="matrixStatus" aria-live="polite"></span></div>
+  <div class="matrixActions"><button type="button" class="save" onclick="applySessionMatrix()">Apply to Timetable</button><button type="button" class="print" onclick="saveSessionMatrix()">Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><button type="button" class="save" onclick="printFinalTimetable()">🖨 A4 Final Timetable (Landscape)</button><span id="matrixStatus" aria-live="polite"></span></div>
 </section>
 
 <div class="note">Enter a resource title and URL below any session. The resource is saved in this browser and, once the Google Apps Script connector is configured, automatically sent to the linked Google Sheet. <a href="https://docs.google.com/spreadsheets/d/1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA/edit?usp=sharing" target="_blank">Open Google Sheet</a>. Click “Generate Current PDF” to create a fresh PDF containing the current resource names as clickable hyperlinks.</div>
@@ -361,6 +390,16 @@ function loadSessionMatrixFromSheet(){
  window.addEventListener('message',onMessage);
  document.body.appendChild(frame);
  setTimeout(()=>{if(!done){done=true;finish();document.getElementById('matrixStatus').textContent='Matrix load timed out; using browser copy.'}},12000);
+}
+function printFinalTimetable(){
+  // Apply the currently saved/loaded matrix values to the visible timetable before printing.
+  applySessionMatrix(false);
+  document.body.classList.add('print-final');
+  const cleanup=()=>document.body.classList.remove('print-final');
+  window.addEventListener('afterprint',cleanup,{once:true});
+  window.print();
+  // Fallback for browsers that do not reliably emit afterprint.
+  setTimeout(cleanup,2000);
 }
 function applySessionMatrix(saveRemote=true){
  const data=readSessionMatrix();
