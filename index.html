@@ -10,7 +10,7 @@ header{background:#173f63;color:white;text-align:center;padding:17px 10px}
 .bar button{padding:9px 13px;border:0;border-radius:6px;font-weight:bold;cursor:pointer}.save{background:#173f63;color:white}.print{background:#e8eef3;color:#173f63}.pdfbtn{text-decoration:none;display:inline-block}
 table{border-collapse:collapse;width:1550px;background:white;margin:auto;table-layout:fixed}
 th,td{border:1px solid #9fb0bd;vertical-align:top}th{background:#20537b;color:white;text-align:center;padding:10px 6px;font-size:14px}
-.session-header-days{margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.45);font-size:10px;line-height:1.45;font-weight:600;text-align:center;white-space:normal}.session-header-days div{display:block}
+
 th:nth-child(1){width:105px}th:nth-child(2){width:180px}th:nth-child(n+3){width:310px}
 td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-align:center;color:#173f63}
 .topic{font-weight:700;font-size:14px;margin-bottom:6px}.speaker{font-size:12px;color:#3e4c57}
@@ -305,28 +305,6 @@ const DAY_META_KEY='ZIET_SHORT_WORKSHOP_DAY_META_2026';
 function readInitialDayMeta(){return Array.from(document.querySelectorAll('table tbody tr')).slice(0,5).map((row,i)=>{const cell=row.querySelector('td.date');const bits=(cell?.innerText||'').split(/\n/).map(x=>x.trim());const m=(bits[0]||'').match(/^(\d{2})[.\/-](\d{2})[.\/-](\d{4})$/);return {date:m?m[3]+'-'+m[2]+'-'+m[1]:'',dayName:bits[1]||'',dayLabel:bits[2]||('Day-'+(i+1))}})}
 function getDayMeta(){try{const saved=JSON.parse(localStorage.getItem(DAY_META_KEY)||'null');if(Array.isArray(saved)&&saved.length===5)return saved}catch(e){}return readInitialDayMeta()}
 function formatDateForCell(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:iso}
-function renderSessionHeaderDays(meta){
- const headers=document.querySelectorAll('table thead th');
- headers.forEach((th,index)=>{
-   if(index===0)return;
-   let strip=th.querySelector('.session-header-days');
-   if(!strip){strip=document.createElement('div');strip.className='session-header-days';th.appendChild(strip)}
-   strip.replaceChildren();
-   meta.forEach((item,i)=>{
-     // The Matrix is the source of truth: show every populated Matrix day
-     // in the session headers, whether entered now or already present.
-     if(!item.date&&!item.dayName)return;
-     const line=document.createElement('div');
-     const date=formatDateForCell(item.date);
-     const weekday=item.dayName||'';
-     // Day number is taken from the Matrix card's Day-1 ... Day-5 position.
-     const dayLabel='Day-'+(i+1);
-     line.textContent=[date,weekday,dayLabel].filter(Boolean).join(' | ');
-     strip.appendChild(line);
-   });
-   if(!strip.children.length)strip.remove();
- });
-}
 function renderDayMeta(meta){document.querySelectorAll('table tbody tr').forEach((row,i)=>{const cell=row.querySelector('td.date'),m=meta[i];if(!cell||!m)return;cell.innerHTML='<b></b><br><span class="weekday"></span><br><strong></strong>';cell.querySelector('b').textContent=formatDateForCell(m.date);cell.querySelector('.weekday').textContent=m.dayName||'';cell.querySelector('strong').textContent=m.dayLabel||('Day-'+(i+1));});renderSessionHeaderDays(meta);}
 function syncDateRangeFromDayMeta(meta){if(!meta?.length)return;const first=meta[0].date,last=meta[meta.length-1].date;if(first)document.getElementById('startDate').value=first;if(last)document.getElementById('endDate').value=last;if(first&&last)document.getElementById('durationDisplay').textContent='Duration: '+formatDateForHeader(first)+' to '+formatDateForHeader(last);updateWorkshopDescription();saveWorkshopSettings()}
 function updateDayMetaFromMatrix(){const meta=getDayMeta();document.querySelectorAll('.sessionCard[data-session-index="0"]').forEach(card=>{const i=Number(card.dataset.dayIndex);const date=card.querySelector('[data-day-field="date"]')?.value||'';const dayName=card.querySelector('[data-day-field="dayName"]')?.value.trim()||'';if(meta[i]){meta[i].date=date;meta[i].dayName=dayName;meta[i].headerVisible=!!(date||dayName)}});localStorage.setItem(DAY_META_KEY,JSON.stringify(meta));renderDayMeta(meta);syncDateRangeFromDayMeta(meta)}
