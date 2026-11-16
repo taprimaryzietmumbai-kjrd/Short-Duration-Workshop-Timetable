@@ -26,6 +26,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 .sessionCard h3{margin:0 0 8px;color:#20537b;font-size:14px}
 .sessionCard label{display:block;font-size:11px;font-weight:bold;margin-top:6px;color:#344653}
 .sessionCard input{display:block;width:100%;padding:7px;margin-top:3px;border:1px solid #b9c7d1;border-radius:4px;font-size:12px}
+.sessionDayMeta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px;padding:9px;background:#eef4f8;border:1px solid #cbd7e0;border-radius:6px}.sessionDayMeta label{display:block;font-size:11px;font-weight:bold;color:#344653}.sessionDayMeta input{display:block;width:100%;padding:7px;margin-top:4px;border:1px solid #b9c7d1;border-radius:4px;font-size:12px}
 .matrixActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}.matrixActions button{padding:9px 13px;border:0;border-radius:6px;font-weight:bold;cursor:pointer}
 #matrixStatus{font-size:12px;font-weight:bold;color:#1b6e3a}
 @media(max-width:760px){.matrixGrid{grid-template-columns:1fr}}
@@ -299,6 +300,14 @@ window.addEventListener('beforeunload',saveWorkshopSettings);
 
 
 const MATRIX_KEY='ZIET_SHORT_WORKSHOP_SESSION_MATRIX_2026';
+const DAY_META_KEY='ZIET_SHORT_WORKSHOP_DAY_META_2026';
+function readInitialDayMeta(){return Array.from(document.querySelectorAll('table tbody tr')).slice(0,5).map((row,i)=>{const cell=row.querySelector('td.date');const bits=(cell?.innerText||'').split(/\\n/).map(x=>x.trim());const m=(bits[0]||'').match(/^(\\d{2})[.\\/-](\\d{2})[.\\/-](\\d{4})$/);return {date:m?m[3]+'-'+m[2]+'-'+m[1]:'',dayName:bits[1]||'',dayLabel:bits[2]||('Day-'+(i+1))}})}
+function getDayMeta(){try{const saved=JSON.parse(localStorage.getItem(DAY_META_KEY)||'null');if(Array.isArray(saved)&&saved.length===5)return saved}catch(e){}return readInitialDayMeta()}
+function formatDateForCell(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:iso}
+function renderDayMeta(meta){document.querySelectorAll('table tbody tr').forEach((row,i)=>{const cell=row.querySelector('td.date'),m=meta[i];if(!cell||!m)return;cell.innerHTML='<b></b><br><span class="weekday"></span><br><strong></strong>';cell.querySelector('b').textContent=formatDateForCell(m.date);cell.querySelector('.weekday').textContent=m.dayName||'';cell.querySelector('strong').textContent=m.dayLabel||('Day-'+(i+1));});}
+function syncDateRangeFromDayMeta(meta){if(!meta?.length)return;const first=meta[0].date,last=meta[meta.length-1].date;if(first)document.getElementById('startDate').value=first;if(last)document.getElementById('endDate').value=last;if(first&&last)document.getElementById('durationDisplay').textContent='Duration: '+formatDateForHeader(first)+' to '+formatDateForHeader(last);updateWorkshopDescription();saveWorkshopSettings()}
+function updateDayMetaFromMatrix(){const meta=getDayMeta();document.querySelectorAll('.sessionCard[data-session-index="0"]').forEach(card=>{const i=Number(card.dataset.dayIndex);const date=card.querySelector('[data-day-field="date"]')?.value;const dayName=card.querySelector('[data-day-field="dayName"]')?.value.trim();if(meta[i]){meta[i].date=date||'';meta[i].dayName=dayName||''}});localStorage.setItem(DAY_META_KEY,JSON.stringify(meta));renderDayMeta(meta);syncDateRangeFromDayMeta(meta)}
+
 function getSessionCells(){
   const rows=Array.from(document.querySelectorAll('table tbody tr'));
   const out=[];
@@ -331,7 +340,9 @@ function renderSessionMatrix(data){
   data.forEach(item=>{
     const card=document.createElement('div'); card.className='sessionCard';
     const sessionLabel=item.sessionIndex===0?'Morning Assembly':'Session '+item.sessionIndex;
-    card.innerHTML='<h3>Day '+(item.dayIndex+1)+' · '+sessionLabel+'</h3>'+
+    const meta=getDayMeta()[item.dayIndex]||{};
+    const dayFields=item.sessionIndex===0?'<div class="sessionDayMeta"><label>Date<input type="date" data-day-field="date" value="'+(meta.date||'')+'"></label><label>Day / Weekday<input type="text" data-day-field="dayName" value="'+(meta.dayName||'')+'" placeholder="e.g. Monday"></label></div>':'';
+    card.innerHTML='<h3>Day '+(item.dayIndex+1)+' · '+sessionLabel+'</h3>'+dayFields+
       '<label>Session Heading<input data-field="topic" placeholder="Enter session heading"></label>'+
       '<label>Speaker Name<input data-field="speakerName" placeholder="Enter speaker name"></label>'+
       '<label>Designation<input data-field="designation" placeholder="e.g. Professor / Principal"></label>'+
@@ -352,6 +363,7 @@ function readSessionMatrix(){
 }
 function saveSessionMatrix(){
  const data=readSessionMatrix();
+ const dayMeta=getDayMeta();data.forEach(item=>{item.dayDate=dayMeta[item.dayIndex]?.date||'';item.dayName=dayMeta[item.dayIndex]?.dayName||'';});
  localStorage.setItem(MATRIX_KEY,JSON.stringify(data));
  document.getElementById('matrixStatus').textContent='Saving matrix to Google Sheet…';
  const endpoint=getWebApp();
@@ -378,6 +390,8 @@ function loadSessionMatrixFromSheet(){
    done=true;finish();
    if(d.ok&&Array.isArray(d.sessions)&&d.sessions.length===25){
      localStorage.setItem(MATRIX_KEY,JSON.stringify(d.sessions));
+     const oldMeta=getDayMeta();const remoteDays=Array.from({length:5},(_,i)=>{const x=d.sessions.find(s=>Number(s.dayIndex)===i&&s.dayDate);return x?{...oldMeta[i],date:x.dayDate,dayName:x.dayName||oldMeta[i].dayName}:oldMeta[i]});
+     localStorage.setItem(DAY_META_KEY,JSON.stringify(remoteDays));renderDayMeta(remoteDays);syncDateRangeFromDayMeta(remoteDays);
      renderSessionMatrix(d.sessions);
      applySessionMatrix(false);
      document.getElementById('matrixStatus').textContent='Matrix loaded from Google Sheet ✓';
@@ -433,13 +447,15 @@ function initSessionMatrix(){
    data=fresh;
  }
  renderSessionMatrix(data);
+ const dayMeta=getDayMeta();renderDayMeta(dayMeta);syncDateRangeFromDayMeta(dayMeta);
  // Restore saved session headings and speaker details immediately on every opening.
  applySessionMatrix(false);
  loadSessionMatrixFromSheet();
  // Save edits locally as they are typed, and reflect them in the matching timetable cell.
- document.getElementById('matrixGrid').addEventListener('input',()=>{
+ document.getElementById('matrixGrid').addEventListener('input',event=>{
    const latest=readSessionMatrix();
    localStorage.setItem(MATRIX_KEY,JSON.stringify(latest));
+   if(event.target.matches('[data-day-field]'))updateDayMetaFromMatrix();
    applySessionMatrix(false);
  });
 }
