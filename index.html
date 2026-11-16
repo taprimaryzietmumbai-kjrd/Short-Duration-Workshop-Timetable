@@ -319,7 +319,8 @@ function renderSessionHeaderDays(meta){
      const line=document.createElement('div');
      const date=formatDateForCell(item.date);
      const weekday=item.dayName||'';
-     const dayLabel=item.dayLabel||('Day-'+(i+1));
+     // Day number is taken from the Matrix card's Day-1 ... Day-5 position.
+     const dayLabel='Day-'+(i+1);
      line.textContent=[date,weekday,dayLabel].filter(Boolean).join(' | ');
      strip.appendChild(line);
    });
@@ -328,7 +329,7 @@ function renderSessionHeaderDays(meta){
 }
 function renderDayMeta(meta){document.querySelectorAll('table tbody tr').forEach((row,i)=>{const cell=row.querySelector('td.date'),m=meta[i];if(!cell||!m)return;cell.innerHTML='<b></b><br><span class="weekday"></span><br><strong></strong>';cell.querySelector('b').textContent=formatDateForCell(m.date);cell.querySelector('.weekday').textContent=m.dayName||'';cell.querySelector('strong').textContent=m.dayLabel||('Day-'+(i+1));});renderSessionHeaderDays(meta);}
 function syncDateRangeFromDayMeta(meta){if(!meta?.length)return;const first=meta[0].date,last=meta[meta.length-1].date;if(first)document.getElementById('startDate').value=first;if(last)document.getElementById('endDate').value=last;if(first&&last)document.getElementById('durationDisplay').textContent='Duration: '+formatDateForHeader(first)+' to '+formatDateForHeader(last);updateWorkshopDescription();saveWorkshopSettings()}
-function updateDayMetaFromMatrix(){const meta=getDayMeta();document.querySelectorAll('.sessionCard[data-session-index="0"]').forEach(card=>{const i=Number(card.dataset.dayIndex);const date=card.querySelector('[data-day-field="date"]')?.value||'';const dayName=card.querySelector('[data-day-field="dayName"]')?.value.trim()||'';if(meta[i]){if(date!==meta[i].date||dayName!==meta[i].dayName)meta[i].headerVisible=true;meta[i].date=date;meta[i].dayName=dayName}});localStorage.setItem(DAY_META_KEY,JSON.stringify(meta));renderDayMeta(meta);syncDateRangeFromDayMeta(meta)}
+function updateDayMetaFromMatrix(){const meta=getDayMeta();document.querySelectorAll('.sessionCard[data-session-index="0"]').forEach(card=>{const i=Number(card.dataset.dayIndex);const date=card.querySelector('[data-day-field="date"]')?.value||'';const dayName=card.querySelector('[data-day-field="dayName"]')?.value.trim()||'';if(meta[i]){meta[i].date=date;meta[i].dayName=dayName;meta[i].headerVisible=!!(date||dayName)}});localStorage.setItem(DAY_META_KEY,JSON.stringify(meta));renderDayMeta(meta);syncDateRangeFromDayMeta(meta)}
 
 function getSessionCells(){
   const rows=Array.from(document.querySelectorAll('table tbody tr'));
@@ -481,6 +482,9 @@ function initSessionMatrix(){
    localStorage.setItem(MATRIX_KEY,JSON.stringify(latest));
    if(event.target.matches('[data-day-field]'))updateDayMetaFromMatrix();
    applySessionMatrix(false);
+ });
+ document.getElementById('matrixGrid').addEventListener('change',event=>{
+   if(event.target.matches('[data-day-field]'))updateDayMetaFromMatrix();
  });
 }
 initSessionMatrix();
