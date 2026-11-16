@@ -371,8 +371,10 @@ function saveSessionMatrix(){
    document.getElementById('matrixStatus').textContent='Saved in this browser only. Configure the Google Apps Script URL.';
    return;
  }
- sendToSheet({action:'matrixSave',sessions:data}).then(()=>{
-   document.getElementById('matrixStatus').textContent='Matrix saved in this browser and sent to Google Sheet ✓';
+ sendToSheet({action:'matrixSave',sessions:data}).then(ok=>{
+   document.getElementById('matrixStatus').textContent=ok
+     ?'Google Sheet confirmed the Matrix save ✓'
+     :'Matrix saved in this browser, but Google Sheet did NOT confirm the update. Check the Apps Script matrixSave handler and deployment.';
  });
 }
 function loadSessionMatrixFromSheet(){
