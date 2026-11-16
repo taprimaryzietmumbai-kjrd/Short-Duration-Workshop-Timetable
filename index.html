@@ -313,9 +313,9 @@ function renderSessionHeaderDays(meta){
    if(!strip){strip=document.createElement('div');strip.className='session-header-days';th.appendChild(strip)}
    strip.replaceChildren();
    meta.forEach((item,i)=>{
-     // Show a day in the session header only after its Date or Weekday
-     // has been deliberately changed/entered in the Matrix.
-     if(!item.headerVisible)return;
+     // The Matrix is the source of truth: show every populated Matrix day
+     // in the session headers, whether entered now or already present.
+     if(!item.date&&!item.dayName)return;
      const line=document.createElement('div');
      const date=formatDateForCell(item.date);
      const weekday=item.dayName||'';
