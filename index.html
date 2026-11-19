@@ -400,9 +400,9 @@ function loadSessionMatrixFromSheet(){
      applySessionMatrix(false);
      document.getElementById('matrixStatus').textContent='Matrix loaded from Google Sheet ✓';
    }else if(d.ok){
-     document.getElementById('matrixStatus').textContent='No complete saved matrix found in Google Sheet; using current matrix.';
+     document.getElementById('matrixStatus').textContent='No workshop entries found in Google Sheet. Add rows in Workshop Entries, then refresh.';
    }else{
-     document.getElementById('matrixStatus').textContent='Could not load matrix from Google Sheet; using browser copy.';
+     document.getElementById('matrixStatus').textContent='Google Sheet data error: '+(d.error||'Could not load Workshop Entries. Browser copy retained.');
    }
  };
  window.addEventListener('message',onMessage);
