@@ -196,7 +196,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
   <h2>Session Planning Matrix — 5 Days × Morning Assembly + 4 Sessions</h2>
   <p>Edit Morning Assembly and all four sessions for each day. Enter the heading, speaker name, designation, and organization. Select <b>Apply to Timetable</b> to update the schedule below. When entering data in the Google Sheet, use Session 1 = Morning Assembly, 2 = Session–1, 3 = Session–2, 4 = Session–3, and 5 = Session–4. Enter each date/session combination only once.</p>
   <div id="matrixGrid" class="matrixGrid"></div>
-  <div class="matrixActions"><button type="button" class="save" onclick="applySessionMatrix()">Apply to Timetable</button><button type="button" class="print" onclick="saveSessionMatrix()">Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><button type="button" class="save" onclick="printFinalTimetable()">🖨 A4 Final Timetable (Landscape)</button><span id="matrixStatus" aria-live="polite"></span></div>
+  <div class="matrixActions"><button type="button" id="applyMatrixButton" class="save" onclick="applySessionMatrix()" disabled>Apply to Timetable</button><button type="button" id="saveMatrixButton" class="print" onclick="saveSessionMatrix()" disabled>Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><button type="button" class="save" onclick="printFinalTimetable()">🖨 A4 Final Timetable (Landscape)</button><span id="matrixStatus" aria-live="polite"></span></div>
 </section>
 
 <div class="note">Enter a resource title and URL below any session. The resource is saved in this browser and, once the Google Apps Script connector is configured, automatically sent to the linked Google Sheet. <a href="https://docs.google.com/spreadsheets/d/1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA/edit?usp=sharing" target="_blank">Open Google Sheet</a>. Click “Generate Current PDF” to create a fresh PDF containing the current resource names as clickable hyperlinks.</div>
@@ -364,24 +364,46 @@ function readSessionMatrix(){
  }));
 }
 function saveSessionMatrix(){
+ if(matrixSheetLoadState!=='loaded'){
+   document.getElementById('matrixStatus').textContent='Save blocked: a confirmed Google Sheet load is required. Workshop Entries has not been changed.';
+   return;
+ }
  const data=readSessionMatrix();
  const dayMeta=getDayMeta();data.forEach(item=>{item.dayDate=dayMeta[item.dayIndex]?.date||'';item.dayName=dayMeta[item.dayIndex]?.dayName||'';item.dayMetaVisible=!!dayMeta[item.dayIndex]?.headerVisible;});
- localStorage.setItem(MATRIX_KEY,JSON.stringify(data));
- document.getElementById('matrixStatus').textContent='Saving matrix to Google Sheet…';
+ document.getElementById('matrixStatus').textContent='Saving non-empty changes to protected Workshop Entries…';
  const endpoint=getWebApp();
  if(!endpoint){
-   document.getElementById('matrixStatus').textContent='Saved in this browser only. Configure the Google Apps Script URL.';
+   document.getElementById('matrixStatus').textContent='Save blocked: Google Apps Script URL is unavailable. Workshop Entries was not changed.';
    return;
  }
  sendToSheet({action:'matrixSave',sessions:data}).then(ok=>{
-   document.getElementById('matrixStatus').textContent=ok
-     ?'Google Sheet confirmed the Matrix save ✓'
-     :'Google Sheet save failed: '+(window.lastSheetWriteMessage||'No server confirmation received. Your browser copy is retained.');
+   if(ok){
+     document.getElementById('matrixStatus').textContent='Google Sheet confirmed the Matrix save ✓ Reloading master records…';
+     loadSessionMatrixFromSheet();
+   }else{
+     document.getElementById('matrixStatus').textContent='Google Sheet save failed: '+(window.lastSheetWriteMessage||'No server confirmation. Workshop Entries was not intentionally cleared.');
+   }
+ }).catch(e=>{
+   document.getElementById('matrixStatus').textContent='Save failed: '+e.message+'. Reload the master sheet before trying again.';
  });
+}
+function setMatrixControlsReady(ready){
+ const apply=document.getElementById('applyMatrixButton');
+ const save=document.getElementById('saveMatrixButton');
+ if(apply)apply.disabled=!ready;
+ if(save)save.disabled=!ready;
+ document.querySelectorAll('#matrixGrid input, #matrixGrid textarea, #matrixGrid select').forEach(el=>{el.disabled=!ready});
 }
 function loadSessionMatrixFromSheet(){
  const endpoint=getWebApp();
- if(!endpoint)return;
+ matrixSheetLoadState='loading';
+ setMatrixControlsReady(false);
+ document.getElementById('matrixStatus').textContent='Loading protected master records from Workshop Entries…';
+ if(!endpoint){
+   matrixSheetLoadState='failed';
+   document.getElementById('matrixStatus').textContent='Google Sheet is not configured. Matrix editing and saving are locked.';
+   return;
+ }
  const token='mx_'+Date.now()+'_'+Math.random().toString(36).slice(2);
  const frame=document.createElement('iframe');
  frame.style.display='none';
@@ -391,23 +413,25 @@ function loadSessionMatrixFromSheet(){
  const onMessage=(event)=>{
    const d=event.data;
    if(!d||d.type!=='ZIET_VP_MATRIX'||d.token!==token||done)return;
-   done=true;finish();
+   done=true;clearTimeout(timer);finish();
    if(d.ok&&Array.isArray(d.sessions)&&d.sessions.length===25){
+     matrixSheetLoadState='loaded';
      localStorage.setItem(MATRIX_KEY,JSON.stringify(d.sessions));
      const oldMeta=getDayMeta();const remoteDays=Array.from({length:5},(_,i)=>{const x=d.sessions.find(s=>Number(s.dayIndex)===i&&s.dayDate);return x?{...oldMeta[i],date:x.dayDate,dayName:x.dayName||oldMeta[i].dayName,headerVisible:!!x.dayMetaVisible}:oldMeta[i]});
      localStorage.setItem(DAY_META_KEY,JSON.stringify(remoteDays));renderDayMeta(remoteDays);syncDateRangeFromDayMeta(remoteDays);
      renderSessionMatrix(d.sessions);
      applySessionMatrix(false);
-     document.getElementById('matrixStatus').textContent='Matrix loaded from Google Sheet ✓';
-   }else if(d.ok){
-     document.getElementById('matrixStatus').textContent='No workshop entries found in Google Sheet. Add rows in Workshop Entries, then refresh.';
+     setMatrixControlsReady(true);
+     document.getElementById('matrixStatus').textContent='Master records loaded from Google Sheet ✓ You may now edit and save.';
    }else{
-     document.getElementById('matrixStatus').textContent='Google Sheet data error: '+(d.error||'Could not load Workshop Entries. Browser copy retained.');
+     matrixSheetLoadState='failed';
+     setMatrixControlsReady(false);
+     document.getElementById('matrixStatus').textContent='Google Sheet returned an invalid matrix. Saving is locked to protect Workshop Entries.';
    }
  };
  window.addEventListener('message',onMessage);
  document.body.appendChild(frame);
- setTimeout(()=>{if(!done){done=true;finish();document.getElementById('matrixStatus').textContent='Matrix load timed out; using browser copy.'}},12000);
+ const timer=setTimeout(()=>{if(!done){done=true;finish();matrixSheetLoadState='failed';setMatrixControlsReady(false);document.getElementById('matrixStatus').textContent='Google Sheet load timed out/failed. Saving is LOCKED; no browser copy will be sent to Workshop Entries.'}},20000);
 }
 function printFinalTimetable(){
   // Apply the currently saved/loaded matrix values to the visible timetable before printing.
@@ -440,6 +464,7 @@ function resetSessionMatrix(){
  document.getElementById('matrixStatus').textContent='Matrix reset. Apply to Timetable to use these entries.';
 }
 function initSessionMatrix(){
+ setMatrixControlsReady(false);
  let data;
  try{data=JSON.parse(localStorage.getItem(MATRIX_KEY)||'null')}catch(e){}
  const fresh=currentSessionData();
