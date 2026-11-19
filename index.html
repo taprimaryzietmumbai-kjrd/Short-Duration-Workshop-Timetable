@@ -194,7 +194,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 
 <section id="sessionMatrix" class="matrixPanel">
   <h2>Session Planning Matrix — 5 Days × Morning Assembly + 4 Sessions</h2>
-  <p>Edit Morning Assembly and all four sessions for each day. Enter the heading, speaker name, designation, and organization. Select <b>Apply to Timetable</b> to update the schedule below.</p>
+  <p>Edit Morning Assembly and all four sessions for each day. Enter the heading, speaker name, designation, and organization. Select <b>Apply to Timetable</b> to update the schedule below. When entering data in the Google Sheet, use Session 1 = Morning Assembly, 2 = Session–1, 3 = Session–2, 4 = Session–3, and 5 = Session–4. Enter each date/session combination only once.</p>
   <div id="matrixGrid" class="matrixGrid"></div>
   <div class="matrixActions"><button type="button" class="save" onclick="applySessionMatrix()">Apply to Timetable</button><button type="button" class="print" onclick="saveSessionMatrix()">Save Matrix</button><button type="button" class="print" onclick="resetSessionMatrix()">Reset Matrix</button><button type="button" class="save" onclick="printFinalTimetable()">🖨 A4 Final Timetable (Landscape)</button><span id="matrixStatus" aria-live="polite"></span></div>
 </section>
