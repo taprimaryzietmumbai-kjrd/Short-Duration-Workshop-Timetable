@@ -417,7 +417,7 @@ function loadSessionMatrixFromSheet(){
    if(d.ok&&Array.isArray(d.sessions)&&d.sessions.length===25){
      matrixSheetLoadState='loaded';
      localStorage.setItem(MATRIX_KEY,JSON.stringify(d.sessions));
-     const oldMeta=getDayMeta();const remoteDays=Array.from({length:5},(_,i)=>{const x=d.sessions.find(s=>Number(s.dayIndex)===i&&s.dayDate);return x?{...oldMeta[i],date:x.dayDate,dayName:x.dayName||oldMeta[i].dayName,headerVisible:!!x.dayMetaVisible}:oldMeta[i]});
+     const oldMeta=getDayMeta();const hasRemoteDates=d.sessions.some(x=>!!x.dayDate);const remoteDays=Array.from({length:5},(_,i)=>{const x=d.sessions.find(s=>Number(s.dayIndex)===i&&s.dayDate);return x?{...oldMeta[i],date:x.dayDate,dayName:x.dayName||'',headerVisible:!!x.dayMetaVisible}:hasRemoteDates?{...oldMeta[i],date:'',dayName:'',headerVisible:false}:{...oldMeta[i],date:'',dayName:'',headerVisible:false}});
      localStorage.setItem(DAY_META_KEY,JSON.stringify(remoteDays));renderDayMeta(remoteDays);syncDateRangeFromDayMeta(remoteDays);
      renderSessionMatrix(d.sessions);
      applySessionMatrix(false);
