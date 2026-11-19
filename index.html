@@ -376,7 +376,7 @@ function saveSessionMatrix(){
  sendToSheet({action:'matrixSave',sessions:data}).then(ok=>{
    document.getElementById('matrixStatus').textContent=ok
      ?'Google Sheet confirmed the Matrix save ✓'
-     :'Matrix saved in this browser, but Google Sheet did NOT confirm the update. Check the Apps Script matrixSave handler and deployment.';
+     :'Google Sheet save failed: '+(window.lastSheetWriteMessage||'No server confirmation received. Your browser copy is retained.');
  });
 }
 function loadSessionMatrixFromSheet(){
@@ -637,6 +637,7 @@ function sendToSheet(payload){
    form.appendChild(field);
    function finish(ok,message){
      if(done)return;done=true;
+     window.lastSheetWriteMessage=message;
      window.removeEventListener('message',onMessage);
      if(frame.parentNode)frame.parentNode.removeChild(frame);
      if(form.parentNode)form.parentNode.removeChild(form);
