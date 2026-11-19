@@ -466,7 +466,7 @@ function initSessionMatrix(){
    if(event.target.matches('[data-day-field]'))updateDayMetaFromMatrix();
  });
 }
-initSessionMatrix();
+// Initialisation is deferred until the Apps Script connector functions are defined.
 
 function generateCurrentPDF(){
   saveAll();
@@ -1042,6 +1042,9 @@ function restore(){
   // Google Sheet is the central database. Load it first on every device/browser.
   loadFromSheet();
 }
+
+// Start matrix loading only after all connector functions have been declared.
+initSessionMatrix();
 function clearAll(){if(confirm('Clear the links displayed on this browser? The Google Sheet remains the central database and will reload them next time.')){localStorage.removeItem(KEY);loadFromSheet()}}
 restore();
 // Fetch the separate Matrix Configuration tab on every app opening.
