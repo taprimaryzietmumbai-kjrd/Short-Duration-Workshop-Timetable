@@ -519,75 +519,9 @@ const KEY='ZIET_VP_SAME_FORMAT_RESOURCES_2026';
 
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA/edit?usp=sharing';
 
-// Matrix Configuration controls ONLY the five existing timetable column headings and timings.
-// Session topics, speakers, dates, resources and the existing SessionMatrix workflow remain unchanged.
-const MATRIX_CONFIG_SHEET_ID='1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA';
-const MATRIX_CONFIG_CACHE_KEY='ZIET_SHORT_WORKSHOP_MATRIX_CONFIG_2026';
-
-function applyMatrixConfiguration(rows){
-  const headers=Array.from(document.querySelectorAll('.wrap>table thead th'));
-  const bySession=new Map();
-  rows.forEach(item=>{
-    const n=Number(item.session);
-    if(Number.isInteger(n)&&n>=1&&n<=5&&String(item.heading||'').trim()){
-      bySession.set(n,{heading:String(item.heading).trim(),time:String(item.time||'').trim()});
-    }
-  });
-  bySession.forEach((item,n)=>{
-    const th=headers[n];
-    if(!th)return;
-    th.replaceChildren();
-    const heading=document.createElement('span');
-    heading.textContent=item.heading;
-    th.appendChild(heading);
-    if(item.time){
-      th.appendChild(document.createElement('br'));
-      const small=document.createElement('small');
-      small.textContent=item.time;
-      th.appendChild(small);
-    }
-  });
-}
-
-function loadMatrixConfiguration(options={}){
-  const endpoint=getWebApp();
-  const statusEl=document.getElementById('sheetStatus');
-  if(!endpoint){if(statusEl)statusEl.textContent='Apps Script URL is not configured';return}
-  const token='cfg_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-  const frame=document.createElement('iframe');
-  frame.style.display='none';
-  let done=false;
-  const cleanup=()=>{
-    if(frame.parentNode)frame.parentNode.removeChild(frame);
-    window.removeEventListener('message',onMessage);
-  };
-  const finish=(message,ok)=>{
-    if(done)return;
-    done=true;clearTimeout(timer);cleanup();
-    if(statusEl){statusEl.textContent=message;statusEl.style.color=ok?'#1b6e3a':'#a33'}
-  };
-  const onMessage=event=>{
-    const d=event.data;
-    if(!d||d.type!=='ZIET_VP_MATRIX_CONFIG'||d.token!==token||done)return;
-    if(d.ok&&Array.isArray(d.config)){
-      applyMatrixConfiguration(d.config);
-      localStorage.setItem(MATRIX_CONFIG_CACHE_KEY,JSON.stringify(d.config));
-      finish('Matrix headings and timings refreshed ✓',true);
-    }else finish('Could not read Matrix Configuration: '+(d.error||'Unknown error'),false);
-  };
-  window.addEventListener('message',onMessage);
-  const timer=setTimeout(()=>{
-    try{
-      const cached=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
-      if(Array.isArray(cached)&&cached.length)applyMatrixConfiguration(cached);
-    }catch(e){}
-    finish('Matrix configuration refresh timed out. Check Apps Script deployment.',false);
-  },15000);
-  frame.src=endpoint+'?action=matrixConfig&token='+encodeURIComponent(token);
-  document.body.appendChild(frame);
-}
+// The existing five-session structure and timings are fixed in this app.
+// Current workshop records are read from Workshop Entries via Apps Script.
 function refreshMatrixData(){
-  loadMatrixConfiguration();
   loadSessionMatrixFromSheet();
 }
 
@@ -613,11 +547,7 @@ function sheetMeta(k){
  const idx=parseInt(k.split('-')[1],10)+1;
  const topic=(cells[idx]?.querySelector('.topic')?.innerText||'').trim();
  const speaker=(cells[idx]?.querySelector('.speaker')?.innerText||'').trim();
- let headings=['Morning Assembly','Session–1','Session–2','Session–3','Session–4'];
- try{
-   const cfg=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
-   if(Array.isArray(cfg)&&cfg.length)headings=cfg.sort((a,b)=>Number(a.session)-Number(b.session)).map(x=>x.heading||('Session-'+x.session));
- }catch(e){}
+ const headings=['Morning Assembly','Session–1','Session–2','Session–3','Session–4'];
  return {date,session:headings[idx-1]||('Session-'+idx),topic,speaker,cellId:k};
 }
 function sendToSheet(payload){
@@ -1048,6 +978,6 @@ function restore(){
 initSessionMatrix();
 function clearAll(){if(confirm('Clear the links displayed on this browser? The Google Sheet remains the central database and will reload them next time.')){localStorage.removeItem(KEY);loadFromSheet()}}
 restore();
-// Fetch the separate Matrix Configuration tab on every app opening.
-loadMatrixConfiguration({silent:true});
+// Load the current workshop matrix from the central Google Sheet.
+loadSessionMatrixFromSheet();
 </script></body></html>
