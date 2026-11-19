@@ -105,7 +105,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <button class="save" onclick="saveAndSync()">💾 Save Resources</button>
 <button class="save" onclick="syncAllToSheet()">📊 Sync to Google Sheet</button>
 <button class="print" onclick="loadFromSheet()">🔄 Load from Google Sheet</button>
-<button class="print" onclick="loadMatrixConfiguration()">↻ Refresh Matrix</button>
+<button class="print" onclick="refreshMatrixData()">↻ Refresh Matrix</button>
 <button class="print" onclick="generateCurrentPDF()">📄 Generate Current PDF</button>
 <button class="print" onclick="window.print()">🖨 Print</button>
 <button class="print" onclick="setupSheet()">⚙ Sheet Setup</button>
@@ -550,53 +550,45 @@ function applyMatrixConfiguration(rows){
 }
 
 function loadMatrixConfiguration(options={}){
-  const status=document.getElementById('sheetStatus');
-  const callback='zietMatrixConfig_'+Date.now()+'_'+Math.random().toString(36).slice(2).replace(/[^a-z0-9]/gi,'');
-  const script=document.createElement('script');
-  let finished=false;
+  const endpoint=getWebApp();
+  const statusEl=document.getElementById('sheetStatus');
+  if(!endpoint){if(statusEl)statusEl.textContent='Apps Script URL is not configured';return}
+  const token='cfg_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  const frame=document.createElement('iframe');
+  frame.style.display='none';
+  let done=false;
   const cleanup=()=>{
-    if(script.parentNode)script.parentNode.removeChild(script);
-    try{delete window[callback]}catch(e){window[callback]=undefined}
+    if(frame.parentNode)frame.parentNode.removeChild(frame);
+    window.removeEventListener('message',onMessage);
   };
   const finish=(message,ok)=>{
-    if(finished)return;
-    finished=true;clearTimeout(timer);cleanup();
-    if(status){status.textContent=message;status.style.color=ok?'#1b6e3a':'#a33'}
+    if(done)return;
+    done=true;clearTimeout(timer);cleanup();
+    if(statusEl){statusEl.textContent=message;statusEl.style.color=ok?'#1b6e3a':'#a33'}
   };
-  window[callback]=response=>{
-    try{
-      if(!response||response.status!=='ok'||!response.table||!Array.isArray(response.table.rows)){
-        throw new Error('Google Sheets returned an invalid configuration response');
-      }
-      const rows=response.table.rows.map(row=>(row.c||[]).map(cell=>cell?(cell.v??cell.f??''):''));
-      const config=rows.slice(1).map(r=>({session:r[0],heading:r[1],time:r[2]}));
-      applyMatrixConfiguration(config);
-      localStorage.setItem(MATRIX_CONFIG_CACHE_KEY,JSON.stringify(config));
-      finish('Matrix headings and timings refreshed from Google Sheets ✓',true);
-    }catch(error){
-      finish('Matrix configuration could not be read: '+error.message,false);
-    }
+  const onMessage=event=>{
+    const d=event.data;
+    if(!d||d.type!=='ZIET_VP_MATRIX_CONFIG'||d.token!==token||done)return;
+    if(d.ok&&Array.isArray(d.config)){
+      applyMatrixConfiguration(d.config);
+      localStorage.setItem(MATRIX_CONFIG_CACHE_KEY,JSON.stringify(d.config));
+      finish('Matrix headings and timings refreshed ✓',true);
+    }else finish('Could not read Matrix Configuration: '+(d.error||'Unknown error'),false);
   };
+  window.addEventListener('message',onMessage);
   const timer=setTimeout(()=>{
-    if(finished)return;
     try{
       const cached=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
       if(Array.isArray(cached)&&cached.length)applyMatrixConfiguration(cached);
     }catch(e){}
-    finish('Matrix configuration could not be refreshed. Check sheet sharing (Anyone with link – Viewer).',false);
+    finish('Matrix configuration refresh timed out. Check Apps Script deployment.',false);
   },15000);
-  const query='https://docs.google.com/spreadsheets/d/'+MATRIX_CONFIG_SHEET_ID+
-    '/gviz/tq?sheet='+encodeURIComponent('Matrix Configuration')+
-    '&tqx='+encodeURIComponent('out:json;responseHandler:'+callback);
-  script.onerror=()=>{
-    try{
-      const cached=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
-      if(Array.isArray(cached)&&cached.length)applyMatrixConfiguration(cached);
-    }catch(e){}
-    finish('Could not access Matrix Configuration. Check sheet sharing permissions.',false);
-  };
-  script.src=query;
-  document.head.appendChild(script);
+  frame.src=endpoint+'?action=matrixConfig&token='+encodeURIComponent(token);
+  document.body.appendChild(frame);
+}
+function refreshMatrixData(){
+  loadMatrixConfiguration();
+  loadSessionMatrixFromSheet();
 }
 
 const WEBAPP_KEY='ZIET_VP_GOOGLE_APPS_SCRIPT_WEBAPP_2026';
@@ -621,7 +613,11 @@ function sheetMeta(k){
  const idx=parseInt(k.split('-')[1],10)+1;
  const topic=(cells[idx]?.querySelector('.topic')?.innerText||'').trim();
  const speaker=(cells[idx]?.querySelector('.speaker')?.innerText||'').trim();
- const headings=['Morning Assembly','Session–1','Session–2','Session–3','Session–4'];
+ let headings=['Morning Assembly','Session–1','Session–2','Session–3','Session–4'];
+ try{
+   const cfg=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
+   if(Array.isArray(cfg)&&cfg.length)headings=cfg.sort((a,b)=>Number(a.session)-Number(b.session)).map(x=>x.heading||('Session-'+x.session));
+ }catch(e){}
  return {date,session:headings[idx-1]||('Session-'+idx),topic,speaker,cellId:k};
 }
 function sendToSheet(payload){
