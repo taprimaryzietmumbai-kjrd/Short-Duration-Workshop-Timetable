@@ -105,6 +105,7 @@ td{padding:9px;font-size:13px;line-height:1.35}.date{background:#edf3f7;text-ali
 <button class="save" onclick="saveAndSync()">💾 Save Resources</button>
 <button class="save" onclick="syncAllToSheet()">📊 Sync to Google Sheet</button>
 <button class="print" onclick="loadFromSheet()">🔄 Load from Google Sheet</button>
+<button class="print" onclick="loadMatrixConfiguration()">↻ Refresh Matrix</button>
 <button class="print" onclick="generateCurrentPDF()">📄 Generate Current PDF</button>
 <button class="print" onclick="window.print()">🖨 Print</button>
 <button class="print" onclick="setupSheet()">⚙ Sheet Setup</button>
@@ -515,7 +516,89 @@ function generateCurrentPDF(){
 </script>
 <script>
 const KEY='ZIET_VP_SAME_FORMAT_RESOURCES_2026';
+
 const SHEET_URL='https://docs.google.com/spreadsheets/d/1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA/edit?usp=sharing';
+
+// Matrix Configuration controls ONLY the five existing timetable column headings and timings.
+// Session topics, speakers, dates, resources and the existing SessionMatrix workflow remain unchanged.
+const MATRIX_CONFIG_SHEET_ID='1E7RQRpCT23gRGNda4exqEBbgDdD6vRp0mmuNa1aDFSA';
+const MATRIX_CONFIG_CACHE_KEY='ZIET_SHORT_WORKSHOP_MATRIX_CONFIG_2026';
+
+function applyMatrixConfiguration(rows){
+  const headers=Array.from(document.querySelectorAll('.wrap>table thead th'));
+  const bySession=new Map();
+  rows.forEach(item=>{
+    const n=Number(item.session);
+    if(Number.isInteger(n)&&n>=1&&n<=5&&String(item.heading||'').trim()){
+      bySession.set(n,{heading:String(item.heading).trim(),time:String(item.time||'').trim()});
+    }
+  });
+  bySession.forEach((item,n)=>{
+    const th=headers[n];
+    if(!th)return;
+    th.replaceChildren();
+    const heading=document.createElement('span');
+    heading.textContent=item.heading;
+    th.appendChild(heading);
+    if(item.time){
+      th.appendChild(document.createElement('br'));
+      const small=document.createElement('small');
+      small.textContent=item.time;
+      th.appendChild(small);
+    }
+  });
+}
+
+function loadMatrixConfiguration(options={}){
+  const status=document.getElementById('sheetStatus');
+  const callback='zietMatrixConfig_'+Date.now()+'_'+Math.random().toString(36).slice(2).replace(/[^a-z0-9]/gi,'');
+  const script=document.createElement('script');
+  let finished=false;
+  const cleanup=()=>{
+    if(script.parentNode)script.parentNode.removeChild(script);
+    try{delete window[callback]}catch(e){window[callback]=undefined}
+  };
+  const finish=(message,ok)=>{
+    if(finished)return;
+    finished=true;clearTimeout(timer);cleanup();
+    if(status){status.textContent=message;status.style.color=ok?'#1b6e3a':'#a33'}
+  };
+  window[callback]=response=>{
+    try{
+      if(!response||response.status!=='ok'||!response.table||!Array.isArray(response.table.rows)){
+        throw new Error('Google Sheets returned an invalid configuration response');
+      }
+      const rows=response.table.rows.map(row=>(row.c||[]).map(cell=>cell?(cell.v??cell.f??''):''));
+      const config=rows.slice(1).map(r=>({session:r[0],heading:r[1],time:r[2]}));
+      applyMatrixConfiguration(config);
+      localStorage.setItem(MATRIX_CONFIG_CACHE_KEY,JSON.stringify(config));
+      finish('Matrix headings and timings refreshed from Google Sheets ✓',true);
+    }catch(error){
+      finish('Matrix configuration could not be read: '+error.message,false);
+    }
+  };
+  const timer=setTimeout(()=>{
+    if(finished)return;
+    try{
+      const cached=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
+      if(Array.isArray(cached)&&cached.length)applyMatrixConfiguration(cached);
+    }catch(e){}
+    finish('Matrix configuration could not be refreshed. Check sheet sharing (Anyone with link – Viewer).',false);
+  },15000);
+  const query='https://docs.google.com/spreadsheets/d/'+MATRIX_CONFIG_SHEET_ID+
+    '/gviz/tq?sheet='+encodeURIComponent('Matrix Configuration')+
+    '&tqx='+encodeURIComponent('out:json;responseHandler:'+callback);
+  script.onerror=()=>{
+    try{
+      const cached=JSON.parse(localStorage.getItem(MATRIX_CONFIG_CACHE_KEY)||'[]');
+      if(Array.isArray(cached)&&cached.length)applyMatrixConfiguration(cached);
+    }catch(e){}
+    finish('Could not access Matrix Configuration. Check sheet sharing permissions.',false);
+  };
+  script.src=query;
+  document.head.appendChild(script);
+}
+
 const WEBAPP_KEY='ZIET_VP_GOOGLE_APPS_SCRIPT_WEBAPP_2026';
 const WEBAPP_URL='https://script.google.com/macros/s/AKfycbw7QEIGFLgSknxWBEn5AfBu-RcPeR-DbLW5bpWZMhmESiDK3dO8z1J5FSIcp9xfJeq6DQ/exec';
 function valid(u){try{const x=new URL(u);return x.protocol==='http:'||x.protocol==='https:'}catch(e){return false}}
@@ -965,4 +1048,6 @@ function restore(){
 }
 function clearAll(){if(confirm('Clear the links displayed on this browser? The Google Sheet remains the central database and will reload them next time.')){localStorage.removeItem(KEY);loadFromSheet()}}
 restore();
+// Fetch the separate Matrix Configuration tab on every app opening.
+loadMatrixConfiguration({silent:true});
 </script></body></html>
